@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SolveLog settings</title>
+  <script src="../shared/theme.js"></script>
+  <link rel="stylesheet" href="../shared/theme.css">
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="brand-mark"><img src="../../assets/icons/icon-48.png" width="42" height="42" alt=""></div>
+        <div><span>LEETCODE ARCHIVE</span><strong>SolveLog</strong></div>
+      </div>
+      <div class="topbar-actions">
+        <button id="quick-theme" class="square-button" type="button" aria-label="Switch appearance" title="Switch appearance">
+          <svg class="theme-icon moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.4 15.2A8.5 8.5 0 0 1 8.8 3.6 8.6 8.6 0 1 0 20.4 15.2Z"/></svg>
+          <svg class="theme-icon sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"/></svg>
+        </button>
+        <span id="version" class="version">v1.2.0</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero brutal-card">
+      <span class="sticker">SET IT ONCE</span>
+      <h1>Your solved problems should not disappear into submission history.</h1>
+      <p>SolveLog files each Accepted answer as <strong>topic → difficulty → problem</strong>, using one repository and no broad GitHub access.</p>
+      <div class="hero-tags" aria-hidden="true"><span>AUTOMATIC</span><span>PRIVATE</span><span>SEARCHABLE</span></div>
+    </section>
+
+    <section class="card brutal-card">
+      <div class="section-heading">
+        <div class="number">01</div>
+        <div><h2>Pick the mood</h2><p>Light, dark, or system—then choose a colour pack.</p></div>
+      </div>
+
+      <h3>MODE</h3>
+      <div class="theme-grid" role="radiogroup" aria-label="Appearance mode">
+        <label class="choice theme-card">
+          <input type="radio" name="theme" value="system">
+          <span class="preview system-preview"><i></i><i></i></span>
+          <span><strong>SYSTEM</strong><small>Follows your device</small></span>
+        </label>
+        <label class="choice theme-card">
+          <input type="radio" name="theme" value="light">
+          <span class="preview light-preview"><i></i><i></i></span>
+          <span><strong>LIGHT</strong><small>Paper and ink</small></span>
+        </label>
+        <label class="choice theme-card">
+          <input type="radio" name="theme" value="dark">
+          <span class="preview dark-preview"><i></i><i></i></span>
+          <span><strong>DARK</strong><small>Late-night solving</small></span>
+        </label>
+      </div>
+
+      <h3>COLOUR PACK</h3>
+      <div class="palette-grid" role="radiogroup" aria-label="Colour pack">
+        <label class="palette-card voltage">
+          <input type="radio" name="palette" value="voltage">
+          <span class="palette-preview"><i></i><i></i><i></i><i></i></span>
+          <span><strong>VOLTAGE</strong><small>Yellow / pink / green / blue</small></span>
+        </label>
+        <label class="palette-card acid">
+          <input type="radio" name="palette" value="acid">
+          <span class="palette-preview"><i></i><i></i><i></i><i></i></span>
+          <span><strong>ACID</strong><small>Lime / purple / mint / orange</small></span>
+        </label>
+        <label class="palette-card bubblegum">
+          <input type="radio" name="palette" value="bubblegum">
+          <span class="palette-preview"><i></i><i></i><i></i><i></i></span>
+          <span><strong>BUBBLEGUM</strong><small>Pink / cyan / violet / yellow</small></span>
+        </label>
+        <label class="palette-card cobalt">
+          <input type="radio" name="palette" value="cobalt">
+          <span class="palette-preview"><i></i><i></i><i></i><i></i></span>
+          <span><strong>COBALT</strong><small>Blue / yellow / green / pink</small></span>
+        </label>
+        <label class="palette-card tangerine">
+          <input type="radio" name="palette" value="tangerine">
+          <span class="palette-preview"><i></i><i></i><i></i><i></i></span>
+          <span><strong>TANGERINE</strong><small>Orange / yellow / green / violet</small></span>
+        </label>
+      </div>
+    </section>
+
+    <section class="card brutal-card">
+      <div class="section-heading">
+        <div class="number">02</div>
+        <div><h2>Choose how it saves</h2><p>Both modes create the same tidy folder structure.</p></div>
+      </div>
+      <div class="mode-grid">
+        <label class="mode-card github-mode">
+          <input type="radio" name="sync-mode" value="github">
+          <span class="radio-mark" aria-hidden="true"></span>
+          <span><strong>SAVE TO GITHUB</strong><small>Automatic commits with a token limited to one repository.</small></span>
+          <em>RECOMMENDED</em>
+        </label>
+        <label class="mode-card download-mode">
+          <input type="radio" name="sync-mode" value="download">
+          <span class="radio-mark" aria-hidden="true"></span>
+          <span><strong>DOWNLOAD A ZIP</strong><small>No GitHub access. Commit the generated folder yourself.</small></span>
+        </label>
+      </div>
+      <label class="check-row">
+        <input id="auto-sync" type="checkbox">
+        <span><strong>AUTO-SAVE AFTER ACCEPTED</strong><small>Wrong answers are ignored. Failed uploads stay in the local retry queue.</small></span>
+      </label>
+    </section>
+
+    <section id="github-section" class="card brutal-card">
+      <div class="section-heading">
+        <div class="number">03</div>
+        <div><h2>Connect one repository</h2><p>Smallest permission possible. Nothing else.</p></div>
+      </div>
+
+      <div class="security-note">
+        <strong>SAFE TOKEN RECIPE</strong>
+        <ol>
+          <li>Create a dedicated solutions repository.</li>
+          <li>Create a <em>fine-grained personal access token</em>.</li>
+          <li>Select <em>Only select repositories</em> and choose that repository.</li>
+          <li>Grant only <em>Contents: Read and write</em>.</li>
+        </ol>
+        <div class="inline-actions">
+          <a href="https://github.com/new" target="_blank" rel="noreferrer">CREATE REPOSITORY ↗</a>
+          <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noreferrer">CREATE TOKEN ↗</a>
+        </div>
+      </div>
+
+      <form id="settings-form" autocomplete="off">
+        <div class="fields two">
+          <label>REPOSITORY OWNER<input id="owner" name="owner" placeholder="your-github-name" spellcheck="false" required></label>
+          <label>REPOSITORY NAME<input id="repo" name="repo" placeholder="leetcode-solutions" spellcheck="false" required></label>
+        </div>
+        <div class="fields two">
+          <label>BRANCH<input id="branch" name="branch" value="main" spellcheck="false" required></label>
+          <label>FINE-GRAINED TOKEN
+            <span class="password-field"><input id="token" name="token" type="password" placeholder="Leave blank to keep saved token" autocomplete="new-password"><button id="show-token" type="button">SHOW</button></span>
+            <small id="token-state">No token saved.</small>
+          </label>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="primary">SAVE CHANGES</button>
+          <button id="test-connection" type="button" class="secondary">TEST CONNECTION</button>
+          <button id="forget-token" type="button" class="danger">FORGET TOKEN</button>
+        </div>
+      </form>
+      <div id="form-status" class="form-status" role="status" aria-live="polite"></div>
+    </section>
+
+    <section class="card brutal-card repo-preview">
+      <div class="section-heading">
+        <div class="number">04</div>
+        <div><h2>The final filing cabinet</h2><p>One problem, one folder, no duplicate copies.</p></div>
+      </div>
+      <pre><code>Dynamic-Programming/
+└── Medium/
+    └── 0322-coin-change/
+        ├── README.md
+        ├── metadata.json
+        └── solution.cpp</code></pre>
+      <p class="fine-print">SolveLog stores your code, public metadata, performance numbers, and the LeetCode link. It does not copy the full problem statement.</p>
+    </section>
+  </main>
+
+  <footer>OPEN SOURCE CORE · NO ANALYTICS · NO REMOTE CODE</footer>
+  <script src="options.js"></script>
+</body>
+</html>

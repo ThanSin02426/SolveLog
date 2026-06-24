@@ -1,0 +1,16 @@
+{
+  "name": "solvelog-extension",
+  "version": "1.3.0",
+  "private": true,
+  "description": "Privacy-first LeetCode to GitHub Chrome extension",
+  "type": "module",
+  "scripts": {
+    "validate": "node scripts/validate.mjs && npm test",
+    "package": "bash scripts/package.sh",
+    "test": "node scripts/test-queue.mjs && node scripts/test-service-worker.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}
