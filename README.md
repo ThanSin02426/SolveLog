@@ -108,16 +108,6 @@ The next queued solution begins
 
 Each submission is written as one atomic commit. The queue survives popup closure, tab changes, browser restarts, and temporary GitHub errors.
 
-## Contributing
-
-Bug reports and small, focused pull requests are welcome. A helpful issue includes:
-
-- Browser and version
-- LeetCode problem URL
-- What you expected
-- What happened instead
-- The error shown on `chrome://extensions` or `brave://extensions`
-
 ## License
 
 SolveLog is available under the [MIT License](LICENSE).
