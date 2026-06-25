@@ -3,11 +3,11 @@
 
 # SolveLog
 
-### Your accepted LeetCode solutions, filed where you can actually find them.
+### Accepted on LeetCode. Organised in GitHub. Kept private during contests.
 
-SolveLog is a free, open-source browser extension that saves every **Accepted** LeetCode submission to a GitHub repository you choose—organised by **topic → difficulty → problem**.
+SolveLog is a free, open-source browser extension that saves **Accepted** LeetCode submissions to a GitHub repository you choose—organised by **topic → difficulty → problem**.
 
-[![Version](https://img.shields.io/badge/version-1.3.0-ff3b8d?style=flat-square)](#)
+[![Version](https://img.shields.io/badge/version-1.4.0-ff3b8d?style=flat-square)](#)
 [![Manifest](https://img.shields.io/badge/Chrome-Manifest%20V3-3478f6?style=flat-square)](#)
 [![License](https://img.shields.io/badge/license-MIT-00c96b?style=flat-square)](LICENSE)
 [![Privacy](https://img.shields.io/badge/analytics-none-ffd400?style=flat-square)](docs/SECURITY.md)
@@ -16,33 +16,58 @@ SolveLog is a free, open-source browser extension that saves every **Accepted** 
 
 ---
 
-## Why I built this
+## Why SolveLog exists
 
-Solving a problem feels useful in the moment, but a few weeks later the code is buried inside submission history. I wanted something simple: solve the problem once, and let the archive take care of itself.
+A good solution should become part of your study archive—not disappear into submission history.
 
-SolveLog watches for an **Accepted** result, saves the exact submitted code, and files it into a clean GitHub study repository. No copying, no renaming folders, and no broad access to every repository in your account.
+SolveLog watches for an **Accepted** result, captures the exact code you submitted, and files it into a clean repository. There is no copying, folder renaming, or broad access to every repository in your GitHub account.
 
-<img src="assets/screenshots/welcome-and-purpose.png" alt="SolveLog welcome screen explaining the purpose of the extension" width="100%">
+<img src="assets/screenshots/welcome-and-purpose.png" alt="SolveLog welcome screen" width="100%">
 
 ## What it does
 
 - Saves only **Accepted** submissions.
 - Organises solutions as `Topic / Difficulty / Problem`.
-- Stores code, metadata, runtime, memory, tags, and a problem link.
+- Stores code, metadata, runtime, memory, tags, and the original problem link.
 - Supports multiple programming languages.
-- Uses a persistent FIFO queue, so rapid submissions are committed **one at a time**.
+- Uses a persistent FIFO queue, so rapid submissions are saved **one at a time**.
 - Prevents duplicate commits for the same submission.
-- Includes a manual **Save this solution** fallback.
+- Provides a manual **Save this solution** fallback.
+- Includes **Contest Safe Mode** and a local **Contest Vault**.
 - Supports light, dark, and system themes with five colour packs.
 - Loads no remote JavaScript and includes no analytics or advertising.
 
-## A small interface with a clear job
-
-The popup shows your archive total, difficulty breakdown, sync status, and queue state without turning the extension into another dashboard you have to manage.
-
 <div align="center">
-  <img src="assets/screenshots/popup-dashboard.png" alt="SolveLog popup showing archive statistics and controls" width="390">
+  <img src="assets/screenshots/popup-dashboard.png" alt="SolveLog popup" width="390">
 </div>
+
+## Contest Safe Mode
+
+Contest Safe Mode is enabled by default.
+
+When SolveLog detects a LeetCode contest route, accepted solutions are stored only in the browser's local **Contest Vault**. Nothing is committed to GitHub until you review and release it.
+
+```text
+Accepted during contest
+        ↓
+Stored locally in Contest Vault
+        ↓
+Review after the contest
+        ↓
+Release selected solutions
+        ↓
+Normal one-at-a-time save queue
+```
+
+From SolveLog settings, you can:
+
+- review every locally stored contest solution;
+- open the original problem;
+- release selected solutions;
+- release the entire vault; or
+- discard local copies you do not want to publish.
+
+Contest Vault items survive popup closure, tab changes, and browser restarts. They remain local until you release or discard them.
 
 ## Safer GitHub access
 
@@ -55,9 +80,9 @@ The recommended setup uses a GitHub **fine-grained personal access token** restr
 - No classic `repo` scope
 - No organisation-wide access
 
-The token is stored locally in `chrome.storage.local`, is never synced through your browser account, is never logged, and is sent only to GitHub's API.
+The token is stored locally in `chrome.storage.local`, is never browser-synchronised, is never logged, and is sent only to GitHub's API.
 
-<img src="assets/screenshots/secure-repository-setup.png" alt="SolveLog settings showing the one-repository GitHub setup" width="100%">
+<img src="assets/screenshots/secure-repository-setup.png" alt="SolveLog secure repository setup" width="100%">
 
 Prefer zero GitHub access? Use **Download mode** and commit the generated files yourself.
 
@@ -88,9 +113,9 @@ leetcode-solutions/
             └── solution.cpp
 ```
 
-Problems with several LeetCode tags are not copied into several folders. SolveLog chooses one primary topic and keeps the remaining tags in `metadata.json`.
+Problems with several tags are not copied into several folders. SolveLog chooses one primary topic and keeps the remaining tags in `metadata.json`.
 
-## How saving works
+## How normal saving works
 
 ```text
 Accepted on LeetCode
@@ -108,6 +133,105 @@ The next queued solution begins
 
 Each submission is written as one atomic commit. The queue survives popup closure, tab changes, browser restarts, and temporary GitHub errors.
 
+## Install from source — free
+
+Until a public store listing is available, install SolveLog directly from this repository.
+
+### Chrome
+
+1. Download or clone this repository.
+2. Open `chrome://extensions`.
+3. Enable **Developer mode**.
+4. Click **Load unpacked**.
+5. Select the SolveLog project folder.
+6. Open the extension and complete the one-time setup.
+
+### Brave
+
+Use the same steps at `brave://extensions`.
+
+### Microsoft Edge
+
+Use the same steps at `edge://extensions`.
+
+No build step is required for normal use. SolveLog has no runtime dependencies.
+
+## Connect one GitHub repository
+
+1. Create a dedicated repository for your solutions.
+2. Create a GitHub **fine-grained personal access token**.
+3. Under **Repository access**, choose **Only select repositories**.
+4. Select only your solutions repository.
+5. Under **Repository permissions**, set **Contents** to **Read and write**.
+6. Leave every other permission unchanged.
+7. Enter the owner, repository name, branch, and token in SolveLog settings.
+8. Click **Test connection**, then save your settings.
+
+Avoid classic personal access tokens with the broad `repo` permission.
+
+## Development
+
+SolveLog is written in plain JavaScript and uses Chrome Manifest V3.
+
+```bash
+npm run validate
+```
+
+Validation covers:
+
+- extension manifest and required files;
+- JavaScript syntax;
+- platform-independent submission normalisation;
+- Contest Vault storage and release behaviour;
+- queue ordering and duplicate suppression;
+- service-worker concurrency and retry behaviour.
+
+Create the distributable ZIP with:
+
+```bash
+npm run package
+```
+
+The extension package is written to `dist/solvelog-v1.4.0.zip`.
+
+## Privacy
+
+SolveLog is intentionally local-first:
+
+- No analytics
+- No advertising
+- No tracking pixels
+- No remote executable code
+- No sale of user data
+- No copied LeetCode problem statements
+- No server operated by SolveLog
+- Contest Vault code remains in local extension storage until the user releases it
+
+Read the full [Security model](docs/SECURITY.md) and [Privacy policy](docs/PRIVACY_POLICY.md).
+
+## Known limitations
+
+LeetCode can change its routes, editor, or internal submission endpoints. Automatic detection may occasionally require an update. The manual **Save this solution** button is included so your work is not blocked by a UI change.
+
+Contest Safe Mode recognises LeetCode contest routes. Always review the Contest Vault before publishing solutions after a contest.
+
+Only one LeetCode-to-GitHub extension should be enabled at a time. Running SolveLog alongside LeetHub, LeetPush, or an older SolveLog installation can create competing GitHub writes.
+
+## Contributing
+
+Bug reports and focused pull requests are welcome. Before submitting a change:
+
+1. Keep the extension dependency-free unless a dependency is genuinely necessary.
+2. Do not introduce analytics, advertising trackers, or remote executable code.
+3. Preserve the one-repository permission model.
+4. Preserve Contest Safe Mode as a free safety feature.
+5. Run `npm run validate`.
+6. Remove tokens, email addresses, and private repository details from logs and screenshots.
+
+## Free edition and future products
+
+This repository contains the free SolveLog edition and remains available under the MIT License. Any future commercial edition, hosted service, or proprietary add-on will be developed and distributed separately. The code already published here remains MIT-licensed.
+
 ## License
 
 SolveLog is available under the [MIT License](LICENSE).
@@ -118,5 +242,5 @@ SolveLog is available under the [MIT License](LICENSE).
 
 <div align="center">
   <strong>Accepted → sorted → saved.</strong><br>
-  Built for people who want their practice to become something they can revisit.
+  During contests: accepted → vaulted → reviewed → released.
 </div>

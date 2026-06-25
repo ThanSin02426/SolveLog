@@ -1,17 +1,25 @@
 # Changelog
 
+## 1.4.0
+
+- Added Contest Safe Mode, enabled by default.
+- Added a persistent local Contest Vault for accepted contest submissions.
+- Added review, select, release, release-all, and discard controls in settings.
+- Ensured contest solutions do not enter the GitHub queue until explicitly released.
+- Added contest-route support for LeetCode problem pages.
+- Added a contest safety notice on active contest pages.
+- Added a platform-independent submission schema while preserving compatibility with older queue data.
+- Added platform-aware duplicate identifiers.
+- Added Contest Vault, submission-model, and release-flow tests.
+- Updated privacy and security documentation for locally stored contest code.
+
 ## 1.3.0
 
 - Added a persistent FIFO queue for accepted and manually saved submissions.
 - Added a single global GitHub write lock so only one commit can run at a time.
 - Added automatic recovery after popup closure, browser restart, or service-worker restart.
 - Added retry backoff for temporary network, branch-head, and GitHub service errors.
-- Added queue-aware popup states: queued, saving now, failed, and number waiting.
-- Disabled Save, Retry, and auto-save controls while a GitHub write is active.
-- Added queue deduplication using submission IDs and deterministic manual-save fingerprints.
-- Added migration from the legacy pending-submission list.
-- Added deterministic queue tests to the validation command.
-- Restyled the in-page notification to match the pixel-brutalist UI without blur or glow.
+- Added queue-aware popup states and deterministic duplicate protection.
 
 ## 1.2.2
 

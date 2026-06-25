@@ -1,9 +1,11 @@
 import { DEFAULT_SETTINGS } from "../shared/constants.js";
+import { normaliseContestVault, vaultSummary } from "./contest-vault.js";
 import { normaliseQueue, queueSummary } from "./queue-utils.js";
 
 export async function getSettings() {
   const stored = await chrome.storage.local.get(Object.keys(DEFAULT_SETTINGS));
   const syncQueue = normaliseQueue(stored.syncQueue, stored.pendingSubmissions);
+  const contestVault = normaliseContestVault(stored.contestVault);
   const queueState = {
     ...DEFAULT_SETTINGS.queueState,
     ...(stored.queueState || {})
@@ -15,6 +17,7 @@ export async function getSettings() {
     lastStatus: { ...DEFAULT_SETTINGS.lastStatus, ...(stored.lastStatus || {}) },
     stats: { ...DEFAULT_SETTINGS.stats, ...(stored.stats || {}) },
     syncQueue,
+    contestVault,
     queueState,
     pendingSubmissions: syncQueue.map((item) => item.submission),
     seenSubmissionIds: Array.isArray(stored.seenSubmissionIds) ? stored.seenSubmissionIds : []
@@ -32,12 +35,14 @@ export function publicSettings(settings) {
     syncQueue,
     syncLease,
     pendingSubmissions,
+    contestVault,
     ...safe
   } = settings;
 
   return {
     ...safe,
     queue: queueSummary(syncQueue, settings.queueState),
+    vault: vaultSummary(contestVault),
     hasToken: Boolean(token)
   };
 }

@@ -11,6 +11,7 @@ import {
   solutionFilename,
   updateRecordLanguage
 } from "../shared/generators.js";
+import { normaliseSubmission } from "../shared/submission-model.js";
 import {
   assertNonEmptyString,
   isoNow,
@@ -27,20 +28,23 @@ import {
 const MAX_SYNC_ATTEMPTS = 6;
 
 function validateSubmission(raw) {
+  const submission = normaliseSubmission(raw);
   const problem = {
-    frontendId: String(raw.frontendId ?? raw.questionFrontendId ?? "").trim(),
-    title: String(raw.title ?? "").trim(),
-    slug: slugify(raw.slug || raw.title),
-    difficulty: normalizeDifficulty(raw.difficulty),
-    tags: Array.isArray(raw.tags) ? raw.tags.map(String).slice(0, 40) : [],
-    language: String(raw.language ?? "").trim().toLowerCase(),
-    code: String(raw.code ?? ""),
-    runtime: String(raw.runtime ?? "").slice(0, 80),
-    memory: String(raw.memory ?? "").slice(0, 80),
-    submissionId: String(raw.submissionId ?? "manual").slice(0, 100),
-    solvedAt: raw.solvedAt || isoNow(),
-    url: String(raw.url || `https://leetcode.com/problems/${slugify(raw.slug || raw.title)}/`),
-    syncSource: raw.syncSource === "manual" ? "manual" : "accepted"
+    platform: submission.platform,
+    frontendId: String(submission.problem.id || submission.problem.slug).trim(),
+    title: String(submission.problem.title || "").trim(),
+    slug: slugify(submission.problem.slug || submission.problem.title),
+    difficulty: normalizeDifficulty(submission.problem.difficulty),
+    tags: Array.isArray(submission.problem.tags) ? submission.problem.tags.map(String).slice(0, 40) : [],
+    language: String(submission.solution.language || "").trim().toLowerCase(),
+    code: String(submission.solution.code || ""),
+    runtime: String(submission.solution.runtime || "").slice(0, 80),
+    memory: String(submission.solution.memory || "").slice(0, 80),
+    submissionId: String(submission.platformSubmissionId || "manual").slice(0, 120),
+    solvedAt: submission.solvedAt || isoNow(),
+    url: safeProblemUrl(submission.problem.url, submission.platform, submission.problem.slug),
+    syncSource: submission.syncSource,
+    context: submission.context
   };
 
   assertNonEmptyString(problem.frontendId, "Problem number", 80);
@@ -48,22 +52,22 @@ function validateSubmission(raw) {
   assertNonEmptyString(problem.slug, "Problem slug", 300);
   assertNonEmptyString(problem.language, "Language", 80);
   assertNonEmptyString(problem.code, "Solution code", 500_000);
-  if (!/^https:\/\/leetcode\.com\/problems\/[a-z0-9-]+\/?/.test(problem.url)) {
-    problem.url = `https://leetcode.com/problems/${problem.slug}/`;
-  }
   return problem;
 }
 
 function emptyIndex() {
-  return { schemaVersion: 1, generatedAt: isoNow(), problems: [] };
+  return { schemaVersion: 2, generatedAt: isoNow(), problems: [] };
 }
 
 async function prepareAgainstSnapshot(problem, client, headSha) {
   const indexFile = await client.getFile(INDEX_PATH, headSha);
   const index = indexFile ? safeJsonParse(indexFile.text, emptyIndex()) : emptyIndex();
   if (!Array.isArray(index.problems)) index.problems = [];
+  index.schemaVersion = 2;
 
-  let record = index.problems.find((item) => item.slug === problem.slug);
+  let record = index.problems.find((item) =>
+    String(item.platform || "leetcode") === problem.platform && item.slug === problem.slug
+  );
   const isNewProblem = !record;
   const classification = record
     ? { primaryDomain: record.primaryDomain, secondaryDomains: record.secondaryDomains || [] }
@@ -83,6 +87,7 @@ async function prepareAgainstSnapshot(problem, client, headSha) {
   }
 
   updateRecordLanguage(record, problem);
+  record.platform = problem.platform;
   record.tags = problem.tags;
   record.difficulty = problem.difficulty;
   record.url = problem.url;
@@ -164,4 +169,17 @@ export function calculateStats(index) {
 
 export function normalizeForExport(rawSubmission) {
   return validateSubmission(rawSubmission);
+}
+
+function safeProblemUrl(value, platform, slug) {
+  const fallback = platform === "leetcode" && slug
+    ? `https://leetcode.com/problems/${slug}/`
+    : "";
+  try {
+    const url = new URL(value || fallback);
+    if (url.protocol !== "https:") return fallback;
+    return url.href;
+  } catch {
+    return fallback;
+  }
 }

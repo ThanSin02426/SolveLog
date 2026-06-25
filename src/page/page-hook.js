@@ -35,13 +35,28 @@
     return null;
   }
 
+  function isSubmissionRequest(url) {
+    return /\/problems\/[^/]+\/submit\/?(?:\?|$)/.test(url)
+      || /\/contest\/[^/]+\/problems\/[^/]+\/submit\/?(?:\?|$)/.test(url);
+  }
+
+  function currentSlug() {
+    return location.pathname.match(/^\/contest\/[^/]+\/problems\/([^/]+)/)?.[1]
+      || location.pathname.match(/^\/problems\/([^/]+)/)?.[1]
+      || canonicalSlug();
+  }
+
+  function canonicalSlug() {
+    const href = document.querySelector('link[rel="canonical"]')?.href || "";
+    try { return new URL(href).pathname.match(/\/problems\/([^/]+)/)?.[1] || ""; } catch { return ""; }
+  }
+
   function captureRequest(url, body) {
-    if (!/\/problems\/[^/]+\/submit\/?(?:\?|$)/.test(url)) return;
+    if (!isSubmissionRequest(url)) return;
     const parsed = parseBody(body);
     if (!parsed?.typed_code || !parsed?.lang) return;
-    const slug = location.pathname.match(/^\/problems\/([^/]+)/)?.[1] || "";
     writeLastSubmission({
-      slug,
+      slug: currentSlug(),
       code: parsed.typed_code,
       language: parsed.lang,
       questionId: String(parsed.question_id || ""),
@@ -52,7 +67,7 @@
   function captureResponse(url, data) {
     if (!data || typeof data !== "object") return;
 
-    if (/\/problems\/[^/]+\/submit\/?(?:\?|$)/.test(url) && data.submission_id && lastSubmission) {
+    if (isSubmissionRequest(url) && data.submission_id && lastSubmission) {
       writeLastSubmission({ ...lastSubmission, submissionId: String(data.submission_id) });
       return;
     }
@@ -70,6 +85,7 @@
     emitted.add(submissionId);
     post("ACCEPTED", {
       ...snapshot,
+      slug: snapshot.slug || currentSlug(),
       submissionId,
       status: "Accepted",
       runtime: data.status_runtime || data.runtime || "",

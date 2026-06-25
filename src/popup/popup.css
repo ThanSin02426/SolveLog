@@ -92,6 +92,7 @@ button { color: inherit; }
 .status-card[data-state="queued"] { background: var(--brand); color: #111; }
 .status-card[data-state="syncing"] { background: var(--accent-3); color: #fff; }
 .status-card[data-state="success"] { background: var(--accent-2); color: #111; }
+.status-card[data-state="vaulted"] { background: var(--brand); color: #111; }
 .status-card[data-state="error"] { background: var(--danger); color: #111; }
 .status-icon {
   display: grid;
@@ -106,6 +107,7 @@ button { color: inherit; }
 .status-icon.queued span { background: var(--brand); }
 .status-icon.syncing span { background: var(--accent-3); }
 .status-icon.success span { background: var(--accent-2); }
+.status-icon.vaulted span { background: var(--brand); }
 .status-icon.error span { background: var(--danger); }
 .status-copy { min-width: 0; }
 .status-line { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
@@ -242,3 +244,41 @@ footer {
 }
 .settings-link { padding: 0; border: 0; background: transparent; color: var(--ink); cursor: pointer; font-weight: 900; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
 footer > span { color: var(--muted); text-align: right; }
+
+.vault-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 11px;
+  margin-top: 14px;
+  padding: 11px 12px;
+  background: var(--brand);
+  color: #111;
+}
+.vault-card[data-active="true"] { background: var(--accent); }
+.vault-symbol {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 3px solid #111;
+  background: #fff;
+  box-shadow: 3px 3px 0 #111;
+  font: 900 15px/1 var(--font-display);
+}
+.vault-copy { min-width: 0; }
+.vault-copy strong { display: block; margin-top: 4px; font: 900 12px/1 var(--font-display); }
+.vault-copy small { display: block; margin-top: 5px; font-size: 8.5px; line-height: 1.35; font-weight: 700; }
+.vault-button {
+  min-height: 34px;
+  padding: 0 9px;
+  border: 3px solid #111;
+  border-radius: 0;
+  background: var(--accent-2);
+  color: #111;
+  box-shadow: 3px 3px 0 #111;
+  cursor: pointer;
+  font-size: 8px;
+  font-weight: 900;
+}
+.vault-button:active { transform: translate(3px,3px); box-shadow: none; }

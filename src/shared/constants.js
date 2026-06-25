@@ -7,6 +7,7 @@ export const GITHUB_API_VERSION = "2026-03-10";
 export const DEFAULT_SETTINGS = Object.freeze({
   syncMode: "github",
   autoSync: true,
+  contestSafeMode: true,
   theme: "system",
   palette: "voltage",
   owner: "",
@@ -25,6 +26,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
     Hard: 0
   },
   pendingSubmissions: [],
+  contestVault: [],
   syncQueue: [],
   queueState: {
     busy: false,

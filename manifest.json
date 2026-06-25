@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "SolveLog",
-  "version": "1.3.0",
-  "description": "Queue accepted LeetCode submissions and save them one at a time to a topic-first GitHub archive.",
+  "version": "1.4.0",
+  "description": "Save accepted LeetCode solutions to GitHub with a persistent queue and contest-safe local vault.",
   "minimum_chrome_version": "120",
   "permissions": [
     "activeTab",
@@ -39,7 +39,8 @@
   "content_scripts": [
     {
       "matches": [
-        "https://leetcode.com/problems/*"
+        "https://leetcode.com/problems/*",
+        "https://leetcode.com/contest/*"
       ],
       "js": [
         "src/content/content-script.js"

@@ -20,7 +20,7 @@
           <svg class="theme-icon moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.4 15.2A8.5 8.5 0 0 1 8.8 3.6 8.6 8.6 0 1 0 20.4 15.2Z"/></svg>
           <svg class="theme-icon sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"/></svg>
         </button>
-        <span id="version" class="version">v1.2.0</span>
+        <span id="version" class="version">v1.4.0</span>
       </div>
     </div>
   </header>
@@ -30,7 +30,7 @@
       <span class="sticker">SET IT ONCE</span>
       <h1>Your solved problems should not disappear into submission history.</h1>
       <p>SolveLog files each Accepted answer as <strong>topic → difficulty → problem</strong>, using one repository and no broad GitHub access.</p>
-      <div class="hero-tags" aria-hidden="true"><span>AUTOMATIC</span><span>PRIVATE</span><span>SEARCHABLE</span></div>
+      <div class="hero-tags" aria-hidden="true"><span>AUTOMATIC</span><span>PRIVATE</span><span>CONTEST-SAFE</span></div>
     </section>
 
     <section class="card brutal-card">
@@ -60,31 +60,11 @@
 
       <h3>COLOUR PACK</h3>
       <div class="palette-grid" role="radiogroup" aria-label="Colour pack">
-        <label class="palette-card voltage">
-          <input type="radio" name="palette" value="voltage">
-          <span class="palette-preview"><i></i><i></i><i></i><i></i></span>
-          <span><strong>VOLTAGE</strong><small>Yellow / pink / green / blue</small></span>
-        </label>
-        <label class="palette-card acid">
-          <input type="radio" name="palette" value="acid">
-          <span class="palette-preview"><i></i><i></i><i></i><i></i></span>
-          <span><strong>ACID</strong><small>Lime / purple / mint / orange</small></span>
-        </label>
-        <label class="palette-card bubblegum">
-          <input type="radio" name="palette" value="bubblegum">
-          <span class="palette-preview"><i></i><i></i><i></i><i></i></span>
-          <span><strong>BUBBLEGUM</strong><small>Pink / cyan / violet / yellow</small></span>
-        </label>
-        <label class="palette-card cobalt">
-          <input type="radio" name="palette" value="cobalt">
-          <span class="palette-preview"><i></i><i></i><i></i><i></i></span>
-          <span><strong>COBALT</strong><small>Blue / yellow / green / pink</small></span>
-        </label>
-        <label class="palette-card tangerine">
-          <input type="radio" name="palette" value="tangerine">
-          <span class="palette-preview"><i></i><i></i><i></i><i></i></span>
-          <span><strong>TANGERINE</strong><small>Orange / yellow / green / violet</small></span>
-        </label>
+        <label class="palette-card voltage"><input type="radio" name="palette" value="voltage"><span class="palette-preview"><i></i><i></i><i></i><i></i></span><span><strong>VOLTAGE</strong><small>Yellow / pink / green / blue</small></span></label>
+        <label class="palette-card acid"><input type="radio" name="palette" value="acid"><span class="palette-preview"><i></i><i></i><i></i><i></i></span><span><strong>ACID</strong><small>Lime / purple / mint / orange</small></span></label>
+        <label class="palette-card bubblegum"><input type="radio" name="palette" value="bubblegum"><span class="palette-preview"><i></i><i></i><i></i><i></i></span><span><strong>BUBBLEGUM</strong><small>Pink / cyan / violet / yellow</small></span></label>
+        <label class="palette-card cobalt"><input type="radio" name="palette" value="cobalt"><span class="palette-preview"><i></i><i></i><i></i><i></i></span><span><strong>COBALT</strong><small>Blue / yellow / green / pink</small></span></label>
+        <label class="palette-card tangerine"><input type="radio" name="palette" value="tangerine"><span class="palette-preview"><i></i><i></i><i></i><i></i></span><span><strong>TANGERINE</strong><small>Orange / yellow / green / violet</small></span></label>
       </div>
     </section>
 
@@ -94,17 +74,8 @@
         <div><h2>Choose how it saves</h2><p>Both modes create the same tidy folder structure.</p></div>
       </div>
       <div class="mode-grid">
-        <label class="mode-card github-mode">
-          <input type="radio" name="sync-mode" value="github">
-          <span class="radio-mark" aria-hidden="true"></span>
-          <span><strong>SAVE TO GITHUB</strong><small>Automatic commits with a token limited to one repository.</small></span>
-          <em>RECOMMENDED</em>
-        </label>
-        <label class="mode-card download-mode">
-          <input type="radio" name="sync-mode" value="download">
-          <span class="radio-mark" aria-hidden="true"></span>
-          <span><strong>DOWNLOAD A ZIP</strong><small>No GitHub access. Commit the generated folder yourself.</small></span>
-        </label>
+        <label class="mode-card github-mode"><input type="radio" name="sync-mode" value="github"><span class="radio-mark" aria-hidden="true"></span><span><strong>SAVE TO GITHUB</strong><small>Automatic commits with a token limited to one repository.</small></span><em>RECOMMENDED</em></label>
+        <label class="mode-card download-mode"><input type="radio" name="sync-mode" value="download"><span class="radio-mark" aria-hidden="true"></span><span><strong>DOWNLOAD A ZIP</strong><small>No GitHub access. Commit the generated folder yourself.</small></span></label>
       </div>
       <label class="check-row">
         <input id="auto-sync" type="checkbox">
@@ -112,9 +83,42 @@
       </label>
     </section>
 
-    <section id="github-section" class="card brutal-card">
+    <section id="contest-safety" class="card brutal-card contest-safety-card">
       <div class="section-heading">
         <div class="number">03</div>
+        <div><h2>Contest Safe Mode</h2><p>Keep accepted contest solutions off GitHub until the contest is over.</p></div>
+      </div>
+      <label class="check-row safe-mode-row">
+        <input id="contest-safe-mode" type="checkbox">
+        <span><strong>PAUSE COMMITS DURING CONTESTS</strong><small>SolveLog stores accepted contest code only in this browser's Contest Vault.</small></span>
+      </label>
+      <div class="contest-flow" aria-label="Contest Safe Mode flow">
+        <span>ACCEPTED</span><b>→</b><span>LOCAL VAULT</span><b>→</b><span>REVIEW</span><b>→</b><span>RELEASE</span>
+      </div>
+      <p class="fine-print">Contest detection uses the active LeetCode contest route. If a platform changes its URLs, review the vault before sharing anything publicly.</p>
+    </section>
+
+    <section id="contest-vault" class="card brutal-card vault-section">
+      <div class="section-heading">
+        <div class="number">V</div>
+        <div><h2>Contest Vault</h2><p>Review locally stored solutions, then release or discard them yourself.</p></div>
+      </div>
+      <div class="vault-toolbar">
+        <label class="select-all"><input id="select-all-vault" type="checkbox"> SELECT ALL</label>
+        <div class="vault-actions">
+          <button id="release-selected" type="button" class="primary">RELEASE SELECTED</button>
+          <button id="release-all" type="button" class="secondary">RELEASE ALL</button>
+          <button id="discard-selected" type="button" class="danger">DISCARD SELECTED</button>
+        </div>
+      </div>
+      <div id="vault-empty" class="vault-empty">Nothing is waiting. Contest solutions will appear here while Safe Mode is on.</div>
+      <div id="vault-list" class="vault-list" aria-live="polite"></div>
+      <div id="vault-status" class="form-status" role="status" aria-live="polite"></div>
+    </section>
+
+    <section id="github-section" class="card brutal-card">
+      <div class="section-heading">
+        <div class="number">04</div>
         <div><h2>Connect one repository</h2><p>Smallest permission possible. Nothing else.</p></div>
       </div>
 
@@ -155,7 +159,7 @@
 
     <section class="card brutal-card repo-preview">
       <div class="section-heading">
-        <div class="number">04</div>
+        <div class="number">05</div>
         <div><h2>The final filing cabinet</h2><p>One problem, one folder, no duplicate copies.</p></div>
       </div>
       <pre><code>Dynamic-Programming/
@@ -164,11 +168,11 @@
         ├── README.md
         ├── metadata.json
         └── solution.cpp</code></pre>
-      <p class="fine-print">SolveLog stores your code, public metadata, performance numbers, and the LeetCode link. It does not copy the full problem statement.</p>
+      <p class="fine-print">SolveLog stores your code, public metadata, performance numbers, and the original problem link. It does not copy the full problem statement.</p>
     </section>
   </main>
 
-  <footer>OPEN SOURCE CORE · NO ANALYTICS · NO REMOTE CODE</footer>
+  <footer>OPEN SOURCE FREE EDITION · NO ANALYTICS · NO REMOTE CODE</footer>
   <script src="options.js"></script>
 </body>
 </html>

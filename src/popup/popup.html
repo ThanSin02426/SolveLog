@@ -12,7 +12,7 @@
   <main class="shell">
     <div class="ticker" aria-hidden="true">
       <span>ACCEPTED → SORTED → SAVED</span>
-      <span class="ticker-chip">NO REPO-WIDE ACCESS</span>
+      <span class="ticker-chip">CONTEST SAFE MODE</span>
     </div>
 
     <header class="header pixel-card brand-card">
@@ -63,6 +63,17 @@
       </span>
       <input id="auto-sync" type="checkbox" role="switch" aria-label="Automatic sync">
     </label>
+
+
+    <section id="vault-card" class="vault-card pixel-card" aria-label="Contest Vault">
+      <div class="vault-symbol" aria-hidden="true">V</div>
+      <div class="vault-copy">
+        <span class="eyebrow">CONTEST VAULT</span>
+        <strong id="vault-title">SAFE MODE ON</strong>
+        <small id="vault-caption">Contest solutions stay local until you release them.</small>
+      </div>
+      <button id="review-vault" class="vault-button" type="button">REVIEW <span id="vault-count"></span></button>
+    </section>
 
     <div class="actions">
       <button id="manual-sync" class="action primary" type="button">

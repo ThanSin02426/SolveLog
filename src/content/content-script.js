@@ -3,12 +3,14 @@
   const pendingEditorRequests = new Map();
   const fallbackInFlight = new Set();
   const fallbackCompleted = new Set();
+  const announcedContests = new Set();
   let lastToastTimer = null;
   let fallbackTimer = null;
-  let lastObservedPath = location.pathname;
+  let lastObservedLocation = `${location.pathname}${location.search}`;
 
   injectPageHook();
   installAcceptedPageFallback();
+  announceContestSafeMode().catch(() => undefined);
 
   window.addEventListener("message", (event) => {
     if (event.source !== window) return;
@@ -56,12 +58,16 @@
   }
 
   async function handleAccepted(payload) {
-    const metadata = await fetchProblemMetadata(payload.slug || currentSlug());
+    const route = currentProblemRoute();
+    const slug = payload.slug || route.slug;
+    const metadata = await fetchProblemMetadata(slug);
     const submission = makeSubmission(metadata, payload, "accepted");
-    showToast(`Accepted · saving ${metadata.title}`, "working");
+    showToast(`Accepted · processing ${metadata.title}`, "working");
     const response = await chrome.runtime.sendMessage({ type: "SUBMISSION_ACCEPTED", submission });
     if (!response?.ok) throw new Error(response?.error || "SolveLog could not save this submission.");
+
     if (response.skipped) showToast(response.reason, "neutral");
+    else if (response.vaulted) showToast("Saved locally · Contest Vault", "vault");
     else if (response.duplicate || response.result?.duplicate) showToast("Already saved", "neutral");
     else if (response.queued) showToast(response.position > 1 ? `Queued · ${response.position - 1} ahead` : "Queued for saving", "neutral");
     else showToast(response.exported ? "Solution downloaded" : "Committed to GitHub", "success");
@@ -71,20 +77,22 @@
   async function manualSync() {
     const editor = await requestEditor();
     if (!editor.code?.trim()) throw new Error("No code was found in the editor.");
-    const slug = currentSlug();
-    const metadata = await fetchProblemMetadata(slug);
-    const route = currentSubmissionRoute();
+    const route = currentProblemRoute();
+    if (!route.slug) throw new Error("Open a LeetCode problem before saving.");
+    const metadata = await fetchProblemMetadata(route.slug);
+    const submissionRoute = currentSubmissionRoute();
     const metrics = readSubmissionMetrics();
     const submission = makeSubmission(metadata, {
       ...editor,
-      submissionId: route?.submissionId || "manual",
+      submissionId: submissionRoute?.submissionId || "manual",
       solvedAt: new Date().toISOString(),
       runtime: metrics.runtime,
       memory: metrics.memory
     }, "manual");
     const response = await chrome.runtime.sendMessage({ type: "SUBMISSION_ACCEPTED", submission });
     if (!response?.ok) throw new Error(response?.error || "Manual sync failed.");
-    if (response.queued) showToast(response.position > 1 ? `Queued · ${response.position - 1} ahead` : "Queued for saving", "neutral");
+    if (response.vaulted) showToast("Saved locally · Contest Vault", "vault");
+    else if (response.queued) showToast(response.position > 1 ? `Queued · ${response.position - 1} ahead` : "Queued for saving", "neutral");
     else showToast(response.exported ? "Solution downloaded" : "Current code saved", "success");
     return response;
   }
@@ -106,14 +114,72 @@
     });
   }
 
-  function currentSlug() {
-    return location.pathname.match(/^\/problems\/([^/]+)/)?.[1] || "";
+  function currentProblemRoute() {
+    const contestMatch = location.pathname.match(/^\/contest\/([^/]+)\/problems\/([^/]+)/);
+    if (contestMatch) {
+      return {
+        slug: contestMatch[2],
+        context: contestContext(contestMatch[1])
+      };
+    }
+
+    const anyContestMatch = location.pathname.match(/^\/contest\/([^/]+)/);
+    if (anyContestMatch) {
+      return {
+        slug: slugFromCanonical(),
+        context: contestContext(anyContestMatch[1])
+      };
+    }
+
+    const problemMatch = location.pathname.match(/^\/problems\/([^/]+)/);
+    const params = new URLSearchParams(location.search);
+    if (problemMatch && params.get("envType") === "contest") {
+      return {
+        slug: problemMatch[1],
+        context: contestContext(params.get("envId") || "contest")
+      };
+    }
+
+    return {
+      slug: problemMatch?.[1] || slugFromCanonical(),
+      context: { kind: "practice", contestId: "", contestTitle: "", contestUrl: "" }
+    };
   }
 
   function currentSubmissionRoute() {
-    const match = location.pathname.match(/^\/problems\/([^/]+)\/submissions\/(\d+)\/?/);
-    if (!match) return null;
-    return { slug: match[1], submissionId: match[2] };
+    const regular = location.pathname.match(/^\/problems\/([^/]+)\/submissions\/(\d+)\/?/);
+    if (regular) return { slug: regular[1], submissionId: regular[2] };
+
+    const contestDetail = location.pathname.match(/^\/contest\/([^/]+)\/submissions\/(?:detail\/)?(\d+)\/?/);
+    if (contestDetail) {
+      return {
+        slug: currentProblemRoute().slug,
+        submissionId: contestDetail[2],
+        context: contestContext(contestDetail[1])
+      };
+    }
+
+    const genericId = location.pathname.match(/\/submissions\/(?:detail\/)?(\d+)\/?/);
+    return genericId ? { slug: currentProblemRoute().slug, submissionId: genericId[1] } : null;
+  }
+
+  function contestContext(contestId) {
+    const safeId = String(contestId || "contest");
+    return {
+      kind: "contest",
+      contestId: safeId,
+      contestTitle: safeId.split("-").filter(Boolean).map(capitalise).join(" ") || "LeetCode Contest",
+      contestUrl: `https://leetcode.com/contest/${encodeURIComponent(safeId)}/`
+    };
+  }
+
+  function slugFromCanonical() {
+    const canonical = document.querySelector('link[rel="canonical"]')?.href || "";
+    try {
+      return new URL(canonical).pathname.match(/\/problems\/([^/]+)/)?.[1] || "";
+    } catch {
+      return "";
+    }
   }
 
   function installAcceptedPageFallback() {
@@ -141,16 +207,18 @@
     window.addEventListener("popstate", () => schedule(0));
 
     setInterval(() => {
-      if (location.pathname !== lastObservedPath) {
-        lastObservedPath = location.pathname;
+      const current = `${location.pathname}${location.search}`;
+      if (current !== lastObservedLocation) {
+        lastObservedLocation = current;
         schedule(0);
+        announceContestSafeMode().catch(() => undefined);
       }
     }, 800);
   }
 
   async function scanAcceptedSubmissionPage() {
     const route = currentSubmissionRoute();
-    if (!route) return;
+    if (!route?.submissionId || !route.slug) return;
     if (fallbackCompleted.has(route.submissionId) || fallbackInFlight.has(route.submissionId)) return;
     if (!pageShowsAcceptedResult()) return;
 
@@ -167,7 +235,8 @@
         language: editor.language,
         runtime: metrics.runtime,
         memory: metrics.memory,
-        solvedAt: new Date().toISOString()
+        solvedAt: new Date().toISOString(),
+        context: route.context
       });
       fallbackCompleted.add(route.submissionId);
     } finally {
@@ -229,7 +298,7 @@
       const question = payload?.data?.question;
       if (!question) throw new Error("Problem metadata was unavailable.");
       return {
-        frontendId: question.questionFrontendId || question.questionId,
+        id: question.questionFrontendId || question.questionId,
         title: question.title,
         slug: question.titleSlug || slug,
         difficulty: question.difficulty,
@@ -249,7 +318,7 @@
       [...document.querySelectorAll("div, span")].some((node) => node.textContent?.trim() === value)
     ) || "Unknown";
     return {
-      frontendId: idMatch?.[1] || slug,
+      id: idMatch?.[1] || slug,
       title: title || slug,
       slug,
       difficulty,
@@ -259,57 +328,73 @@
   }
 
   function makeSubmission(metadata, payload, syncSource) {
+    const solvedAt = payload.solvedAt || new Date().toISOString();
     return {
-      ...metadata,
-      language: payload.language,
-      code: payload.code,
-      runtime: payload.runtime || "",
-      memory: payload.memory || "",
-      submissionId: payload.submissionId || "manual",
-      solvedAt: payload.solvedAt || new Date().toISOString(),
+      schemaVersion: 2,
+      platform: "leetcode",
+      platformSubmissionId: payload.submissionId || "manual",
+      problem: metadata,
+      solution: {
+        language: payload.language,
+        code: payload.code,
+        runtime: payload.runtime || "",
+        memory: payload.memory || ""
+      },
+      context: payload.context || currentProblemRoute().context,
+      solvedAt,
+      capturedAt: solvedAt,
       syncSource
     };
   }
 
-  function delay(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+  async function announceContestSafeMode() {
+    const context = currentProblemRoute().context;
+    if (context.kind !== "contest" || announcedContests.has(context.contestId)) return;
+    const response = await chrome.runtime.sendMessage({ type: "GET_STATE" });
+    if (!response?.ok || response.settings?.contestSafeMode === false) return;
+    announcedContests.add(context.contestId);
+    showToast("Contest Safe Mode · commits are paused", "vault", 5200);
   }
 
-  function showToast(message, state) {
+  function showToast(message, type = "neutral", duration = 3600) {
+    const existing = document.getElementById("solvelog-toast");
+    if (existing) existing.remove();
     clearTimeout(lastToastTimer);
-    let toast = document.getElementById("solvelog-toast");
-    if (!toast) {
-      toast = document.createElement("div");
-      toast.id = "solvelog-toast";
-      Object.assign(toast.style, {
-        position: "fixed",
-        right: "20px",
-        bottom: "20px",
-        zIndex: "2147483647",
-        maxWidth: "320px",
-        padding: "11px 14px",
-        borderRadius: "0",
-        font: "800 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace",
-        color: "#111",
-        background: "#ffd600",
-        border: "3px solid #111",
-        boxShadow: "5px 5px 0 #111",
-        opacity: "0",
-        transform: "translateY(8px)",
-        transition: "opacity .16s ease, transform .16s ease"
-      });
-      document.documentElement.appendChild(toast);
-    }
+
+    const toast = document.createElement("div");
+    toast.id = "solvelog-toast";
     toast.textContent = `SolveLog · ${message}`;
-    toast.style.background = state === "error" ? "#ff5151" : state === "success" ? "#16d96b" : state === "working" ? "#3478f6" : "#ffd600";
-    toast.style.color = state === "working" ? "#fff" : "#111";
-    requestAnimationFrame(() => {
-      toast.style.opacity = "1";
-      toast.style.transform = "translateY(0)";
+    const palette = {
+      success: ["#00c95b", "#111"],
+      error: ["#ff4f55", "#111"],
+      working: ["#2f7cff", "#fff"],
+      vault: ["#ffd600", "#111"],
+      neutral: ["#171717", "#fff"]
+    }[type] || ["#171717", "#fff"];
+    Object.assign(toast.style, {
+      position: "fixed",
+      zIndex: "2147483647",
+      right: "18px",
+      bottom: "18px",
+      maxWidth: "390px",
+      padding: "13px 16px",
+      border: "3px solid #111",
+      borderRadius: "0",
+      background: palette[0],
+      color: palette[1],
+      boxShadow: "5px 5px 0 #111",
+      font: "800 13px/1.35 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
     });
-    lastToastTimer = setTimeout(() => {
-      toast.style.opacity = "0";
-      toast.style.transform = "translateY(8px)";
-    }, state === "error" ? 6000 : 3200);
+    (document.body || document.documentElement).appendChild(toast);
+    lastToastTimer = setTimeout(() => toast.remove(), duration);
+  }
+
+  function capitalise(value) {
+    const text = String(value || "");
+    return text ? text.charAt(0).toUpperCase() + text.slice(1) : "";
+  }
+
+  function delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 })();

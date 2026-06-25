@@ -13,16 +13,16 @@ const second = { submissionId: "101", slug: "three-sum", title: "3Sum", language
 let result = enqueueSubmission([], first, "2026-06-25T00:00:00.000Z");
 assert.equal(result.added, true);
 assert.equal(result.position, 1);
-assert.equal(result.queue[0].id, "submission:100");
+assert.equal(result.queue[0].id, "leetcode:submission:100");
 
 result = enqueueSubmission(result.queue, second, "2026-06-25T00:00:01.000Z");
 assert.equal(result.position, 2);
-assert.deepEqual(result.queue.map((item) => item.submissionId || item.submission.submissionId), ["100", "101"]);
+assert.deepEqual(result.queue.map((item) => item.submission.platformSubmissionId), ["100", "101"]);
 
 const duplicate = enqueueSubmission(result.queue, { ...first, runtime: "1 ms" });
 assert.equal(duplicate.added, false);
 assert.equal(duplicate.queue.length, 2);
-assert.equal(duplicate.queue[0].submission.runtime, "1 ms");
+assert.equal(duplicate.queue[0].submission.solution.runtime, "1 ms");
 
 const manualA = { submissionId: "manual", slug: "two-sum", language: "cpp", code: "return 1;" };
 const manualB = { ...manualA };
@@ -30,8 +30,8 @@ assert.equal(submissionQueueId(manualA), submissionQueueId(manualB));
 
 const legacy = normaliseQueue([first, first, second]);
 assert.equal(legacy.length, 2);
-assert.equal(legacy[0].submission.submissionId, "100");
-assert.equal(legacy[1].submission.submissionId, "101");
+assert.equal(legacy[0].submission.platformSubmissionId, "100");
+assert.equal(legacy[1].submission.platformSubmissionId, "101");
 
 const delayed = { ...legacy[0], nextAttemptAt: new Date(Date.now() + 60_000).toISOString() };
 assert.equal(isQueueItemEligible(delayed), false);

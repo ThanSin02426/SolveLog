@@ -158,3 +158,47 @@ footer { padding: 0 20px 28px; color: var(--muted); text-align: center; font-siz
   .card { padding: 20px; }
   .danger { margin-left: 0; }
 }
+
+.contest-safety-card { background: var(--panel); }
+.safe-mode-row { background: var(--accent); }
+.contest-flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+  margin-top: 20px;
+  padding: 16px;
+  border: 3px solid var(--line);
+  background: var(--panel-2);
+  box-shadow: 4px 4px 0 var(--shadow-ink);
+}
+.contest-flow span { padding: 7px 9px; border: 3px solid var(--line); background: var(--brand); color: #111; font-size: 9px; font-weight: 900; }
+.contest-flow span:nth-of-type(2) { background: var(--accent-3); color: #fff; }
+.contest-flow span:nth-of-type(3) { background: var(--accent); }
+.contest-flow span:nth-of-type(4) { background: var(--accent-2); }
+.contest-flow b { font-size: 16px; }
+.vault-section { scroll-margin-top: 96px; }
+.vault-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.select-all { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.select-all input, .vault-item input { appearance: none; width: 23px; height: 23px; margin: 0; border: 3px solid var(--line); background: var(--panel); }
+.select-all input:checked, .vault-item input:checked { background: var(--accent-2); box-shadow: inset 0 0 0 4px #fff; }
+.vault-actions { display: flex; flex-wrap: wrap; gap: 9px; }
+.vault-actions button { min-height: 40px; padding: 0 12px; border: 3px solid #111; border-radius: 0; color: #111; box-shadow: 3px 3px 0 #111; cursor: pointer; font-size: 8px; font-weight: 900; }
+.vault-actions button:disabled { opacity: .45; filter: grayscale(1); cursor: not-allowed; }
+.vault-actions button:active:not(:disabled) { transform: translate(3px,3px); box-shadow: none; }
+.vault-actions .danger { margin-left: 0; }
+.vault-list { display: grid; gap: 12px; margin-top: 18px; }
+.vault-empty { margin-top: 18px; padding: 20px; border: 3px dashed var(--line); color: var(--muted); font-size: 10px; line-height: 1.6; font-weight: 800; }
+.vault-item { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: start; padding: 15px; border: 3px solid var(--line); background: var(--panel-2); box-shadow: 4px 4px 0 var(--shadow-ink); }
+.vault-item-main { min-width: 0; }
+.vault-item-title { margin: 0; font: 900 16px/1.1 var(--font-display); }
+.vault-item-meta { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 9px; }
+.vault-item-meta span { padding: 4px 6px; border: 2px solid var(--line); background: var(--brand); color: #111; font-size: 8px; font-weight: 900; }
+.vault-item-meta span:nth-child(2) { background: var(--accent-2); }
+.vault-item-meta span:nth-child(3) { background: var(--accent); }
+.vault-item p { margin: 10px 0 0; color: var(--muted); font-size: 9px; font-weight: 700; }
+.vault-item a { white-space: nowrap; }
+@media (max-width: 760px) {
+  .vault-item { grid-template-columns: auto 1fr; }
+  .vault-item a { grid-column: 2; }
+}

@@ -11,6 +11,7 @@ function eventSlot() {
 const storageData = {
   syncMode: "download",
   autoSync: true,
+  contestSafeMode: true,
   theme: "system",
   palette: "voltage",
   owner: "",
@@ -18,6 +19,7 @@ const storageData = {
   branch: "main",
   token: "",
   pendingSubmissions: [],
+  contestVault: [],
   syncQueue: [],
   queueState: { busy: false, activeQueueId: "", activeTitle: "", startedAt: null },
   syncLease: null,
@@ -125,7 +127,7 @@ assert.equal(downloadOrder.length, 2);
 assert.match(downloadOrder[0], /solvelog-1-first\.zip$/);
 assert.match(downloadOrder[1], /solvelog-2-second\.zip$/);
 assert.deepEqual(storageData.syncQueue, []);
-assert.deepEqual(storageData.seenSubmissionIds.slice(0, 2), ["submission-2", "submission-1"]);
+assert.deepEqual(storageData.seenSubmissionIds.slice(0, 2), ["leetcode:submission-2", "leetcode:submission-1"]);
 assert.equal(storageData.queueState.busy, false);
 
 const duplicate = await send({ type: "SUBMISSION_ACCEPTED", submission: submission("1", "First", "first") });
@@ -133,4 +135,33 @@ assert.equal(duplicate.ok, true);
 assert.equal(duplicate.duplicate, true);
 assert.equal(downloadOrder.length, 2, "seen submissions must not be exported twice");
 
-console.log("Service-worker queue integration tests passed.");
+
+const contest = {
+  ...submission("3", "Contest Problem", "contest-problem"),
+  context: {
+    kind: "contest",
+    contestId: "weekly-contest-test",
+    contestTitle: "Weekly Contest Test",
+    contestUrl: "https://leetcode.com/contest/weekly-contest-test/"
+  }
+};
+const vaulted = await send({ type: "SUBMISSION_ACCEPTED", submission: contest });
+assert.equal(vaulted.ok, true);
+assert.equal(vaulted.vaulted, true);
+assert.equal(storageData.contestVault.length, 1);
+assert.equal(downloadOrder.length, 2, "contest submission must stay local before release");
+
+const vaultState = await send({ type: "GET_CONTEST_VAULT" });
+assert.equal(vaultState.ok, true);
+assert.equal(vaultState.items.length, 1);
+assert.equal("code" in vaultState.items[0], false, "public vault summaries must not expose code");
+
+const released = await send({ type: "RELEASE_CONTEST_ITEMS", ids: [vaultState.items[0].id] });
+assert.equal(released.ok, true);
+assert.equal(released.released, 1);
+await new Promise((resolve) => setTimeout(resolve, 100));
+assert.equal(storageData.contestVault.length, 0);
+assert.equal(downloadOrder.length, 3, "released contest submission should enter the normal queue");
+assert.match(downloadOrder[2], /solvelog-3-contest-problem\.zip$/);
+
+console.log("Service-worker queue and Contest Vault integration tests passed.");

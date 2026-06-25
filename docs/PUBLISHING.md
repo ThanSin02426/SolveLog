@@ -23,7 +23,7 @@ Run:
 npm run package
 ```
 
-Upload `dist/solvelog-v1.3.0.zip` to the Chrome Web Store Developer Dashboard.
+Upload `dist/solvelog-v1.4.0.zip` to the Chrome Web Store Developer Dashboard.
 
 ## Developer account
 

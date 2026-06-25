@@ -36,10 +36,11 @@ export function buildProblemGeneratedBlock(problem, record) {
     const fileLink = `./${entry.filename}`;
     return `| [${escapeMarkdown(entry.label)}](${fileLink}) | ${escapeMarkdown(entry.runtime || "—")} | ${escapeMarkdown(entry.memory || "—")} | ${formatDate(entry.solvedAt)} |`;
   }).join("\n");
+  const platformLabel = displayPlatform(problem.platform);
 
   return `${GENERATED_START}\n# ${escapeMarkdown(problem.frontendId)}. ${escapeMarkdown(problem.title)}\n\n` +
-    `> ${escapeMarkdown(problem.difficulty)} · ${escapeMarkdown(record.primaryDomain)}\n\n` +
-    `- **Problem:** [Open on LeetCode](${problem.url})\n` +
+    `> ${escapeMarkdown(problem.difficulty)} · ${escapeMarkdown(record.primaryDomain)} · ${escapeMarkdown(platformLabel)}\n\n` +
+    `- **Problem:** [Open on ${escapeMarkdown(platformLabel)}](${problem.url})\n` +
     `- **Primary topic:** ${escapeMarkdown(record.primaryDomain)}\n` +
     `- **Related topics:** ${escapeMarkdown(secondary)}\n` +
     `- **Tags:** ${tags}\n\n` +
@@ -74,8 +75,9 @@ export function mergeProblemReadme(existingText, generatedBlock) {
 
 export function buildMetadata(problem, record) {
   return JSON.stringify({
-    schemaVersion: 1,
-    source: "leetcode.com",
+    schemaVersion: 2,
+    platform: problem.platform || "leetcode",
+    source: problem.url,
     frontendId: problem.frontendId,
     title: problem.title,
     slug: problem.slug,
@@ -85,6 +87,7 @@ export function buildMetadata(problem, record) {
     secondaryDomains: record.secondaryDomains || [],
     tags: problem.tags || [],
     languages: record.languages || {},
+    lastContext: problem.context || { kind: "practice" },
     updatedAt: record.updatedAt
   }, null, 2) + "\n";
 }
@@ -141,6 +144,7 @@ export function buildCommitMessage(problem, classification, isNewProblem) {
 
 export function createRecord(problem, classification, path) {
   return {
+    platform: problem.platform || "leetcode",
     frontendId: String(problem.frontendId),
     title: problem.title,
     slug: problem.slug,
@@ -165,8 +169,15 @@ export function updateRecordLanguage(record, problem) {
     runtime: problem.runtime || "",
     memory: problem.memory || "",
     solvedAt: problem.solvedAt,
-    syncSource: problem.syncSource || "accepted"
+    syncSource: problem.syncSource || "accepted",
+    context: problem.context || { kind: "practice" }
   };
   record.updatedAt = problem.solvedAt;
   return record;
+}
+
+function displayPlatform(value) {
+  const text = String(value || "leetcode").toLowerCase();
+  if (text === "leetcode") return "LeetCode";
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }

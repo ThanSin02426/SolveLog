@@ -1,5 +1,12 @@
 import { DEFAULT_SETTINGS } from "../shared/constants.js";
 import { exportSubmission } from "./exporter.js";
+import {
+  normaliseContestVault,
+  publicVaultItems,
+  releaseVaultSubmission,
+  selectVaultItems,
+  vaultSubmission
+} from "./contest-vault.js";
 import { GitHubClient } from "./github-client.js";
 import {
   enqueueSubmission,
@@ -9,6 +16,12 @@ import {
   retryBackoffMs
 } from "./queue-utils.js";
 import { getSettings, publicSettings, saveSettings } from "./storage.js";
+import {
+  isContestSubmission,
+  normaliseSubmission,
+  submissionSeenKey,
+  wasSubmissionSeen
+} from "../shared/submission-model.js";
 import { syncToGitHub } from "./sync-engine.js";
 
 const RETRY_ALARM = "solvelog-retry";
@@ -31,9 +44,11 @@ chrome.runtime.onInstalled.addListener(async ({ reason }) => {
   }
 
   const migratedQueue = normaliseQueue(current.syncQueue, current.pendingSubmissions);
+  const migratedVault = normaliseContestVault(current.contestVault);
   await chrome.storage.local.set({
     ...missing,
     syncQueue: migratedQueue,
+    contestVault: migratedVault,
     pendingSubmissions: [],
     queueState: { ...DEFAULT_SETTINGS.queueState },
     syncLease: null
@@ -79,6 +94,12 @@ async function handleMessage(message, sender) {
       return testConnection(message.settings || null);
     case "SUBMISSION_ACCEPTED":
       return queueSubmission(message.submission, sender);
+    case "GET_CONTEST_VAULT":
+      return getContestVault();
+    case "RELEASE_CONTEST_ITEMS":
+      return releaseContestItems(message.ids);
+    case "DISCARD_CONTEST_ITEMS":
+      return discardContestItems(message.ids);
     case "RETRY_PENDING":
       return retryPending();
     default:
@@ -86,17 +107,21 @@ async function handleMessage(message, sender) {
   }
 }
 
-async function queueSubmission(submission) {
+async function queueSubmission(rawSubmission) {
+  const submission = normaliseSubmission(rawSubmission);
   const settings = await getSettings();
-  const automatic = submission?.syncSource !== "manual";
+  const automatic = submission.syncSource !== "manual";
   if (automatic && !settings.autoSync) {
     return { skipped: true, reason: "Automatic sync is disabled." };
   }
 
+  if (settings.contestSafeMode && isContestSubmission(submission) && submission.syncSource !== "contest-release") {
+    return storeInContestVault(submission);
+  }
+
   const queued = await withStorageMutation(async () => {
     const current = await getSettings();
-    const submissionId = String(submission?.submissionId || "");
-    if (submissionId && submissionId !== "manual" && current.seenSubmissionIds.includes(submissionId)) {
+    if (wasSubmissionSeen(current.seenSubmissionIds, submission)) {
       return { duplicate: true, item: null, position: 0 };
     }
 
@@ -107,8 +132,8 @@ async function queueSubmission(submission) {
       lastStatus: {
         state: "queued",
         message: result.position > 1
-          ? `${submission?.title || "Submission"} is queued behind ${result.position - 1} other save${result.position === 2 ? "" : "s"}.`
-          : `${submission?.title || "Submission"} is queued for saving.`,
+          ? `${submission.problem.title || "Submission"} is queued behind ${result.position - 1} other save${result.position === 2 ? "" : "s"}.`
+          : `${submission.problem.title || "Submission"} is queued for saving.`,
         at: new Date().toISOString()
       }
     });
@@ -146,6 +171,88 @@ async function queueSubmission(submission) {
     saved: false,
     position: after.syncQueue.findIndex((item) => item.id === queued.item.id) + 1
   };
+}
+
+
+async function storeInContestVault(submission) {
+  return withStorageMutation(async () => {
+    const current = await getSettings();
+    if (wasSubmissionSeen(current.seenSubmissionIds, submission)) {
+      return { duplicate: true };
+    }
+
+    const result = vaultSubmission(current.contestVault, submission);
+    await chrome.storage.local.set({
+      contestVault: result.vault,
+      lastStatus: {
+        state: "vaulted",
+        message: `${submission.problem.title || "Contest solution"} is safe in Contest Vault. Release it after the contest.`,
+        at: new Date().toISOString()
+      }
+    });
+
+    notify("Saved to Contest Vault", submission.problem.title || "Contest solution");
+    return {
+      vaulted: true,
+      duplicate: !result.added,
+      vaultCount: result.vault.length
+    };
+  });
+}
+
+async function getContestVault() {
+  const settings = await getSettings();
+  return { items: publicVaultItems(settings.contestVault) };
+}
+
+async function releaseContestItems(ids) {
+  const result = await withStorageMutation(async () => {
+    const current = await getSettings();
+    const { selected, remaining } = selectVaultItems(current.contestVault, ids);
+    if (!selected.length) return { released: 0, remaining: current.contestVault.length };
+
+    let queue = current.syncQueue;
+    for (const item of selected) {
+      queue = enqueueSubmission(queue, releaseVaultSubmission(item.submission)).queue;
+    }
+
+    await chrome.storage.local.set({
+      contestVault: remaining,
+      syncQueue: queue,
+      pendingSubmissions: [],
+      lastStatus: {
+        state: "queued",
+        message: `${selected.length} contest solution${selected.length === 1 ? "" : "s"} released to the save queue.`,
+        at: new Date().toISOString()
+      }
+    });
+
+    return { released: selected.length, remaining: remaining.length, queueCount: queue.length };
+  });
+
+  if (result.released) startDrain({ force: false }).catch(() => undefined);
+  return result;
+}
+
+async function discardContestItems(ids) {
+  return withStorageMutation(async () => {
+    const current = await getSettings();
+    const { selected, remaining } = selectVaultItems(current.contestVault, ids);
+    if (!selected.length) return { discarded: 0, remaining: current.contestVault.length };
+
+    await chrome.storage.local.set({
+      contestVault: remaining,
+      lastStatus: {
+        state: remaining.length ? "vaulted" : "idle",
+        message: remaining.length
+          ? `${remaining.length} contest solution${remaining.length === 1 ? " remains" : "s remain"} in Contest Vault.`
+          : "Contest Vault is empty.",
+        at: new Date().toISOString()
+      }
+    });
+
+    return { discarded: selected.length, remaining: remaining.length };
+  });
 }
 
 async function ensureItemGetsDrainTurn(queueId) {
@@ -197,14 +304,14 @@ async function drainQueue({ force = false } = {}) {
       await updateQueueState({
         busy: true,
         activeQueueId: item.id,
-        activeTitle: item.submission?.title || "Submission",
+        activeTitle: item.submission?.problem?.title || "Submission",
         startedAt: new Date().toISOString()
       });
       await setStatus(
         "syncing",
         settings.syncQueue.length > 1
-          ? `Saving ${item.submission?.title || "submission"} · ${settings.syncQueue.length - 1} more waiting.`
-          : `Saving ${item.submission?.title || "submission"}…`
+          ? `Saving ${item.submission?.problem?.title || "submission"} · ${settings.syncQueue.length - 1} more waiting.`
+          : `Saving ${item.submission?.problem?.title || "submission"}…`
       );
 
       try {
@@ -244,14 +351,14 @@ async function completeQueueItem(item, result) {
     completionResults.delete(completionResults.keys().next().value);
   }
 
-  const title = result?.problem?.title || item.submission?.title || "Submission";
-  const submissionId = String(item.submission?.submissionId || "");
+  const title = result?.problem?.title || item.submission?.problem?.title || "Submission";
+  const seenKey = submissionSeenKey(item.submission);
 
   await withStorageMutation(async () => {
     const current = await getSettings();
     const nextQueue = current.syncQueue.filter((entry) => entry.id !== item.id);
-    const seen = submissionId && submissionId !== "manual"
-      ? [submissionId, ...current.seenSubmissionIds.filter((id) => id !== submissionId)].slice(0, 500)
+    const seen = seenKey
+      ? [seenKey, ...current.seenSubmissionIds.filter((id) => id !== seenKey)].slice(0, 500)
       : current.seenSubmissionIds;
 
     const remaining = nextQueue.length;
@@ -276,7 +383,7 @@ async function completeQueueItem(item, result) {
 
   notify(
     result?.duplicate ? "Already saved" : result?.exported ? "Solution exported" : "Committed to GitHub",
-    `${result?.problem?.frontendId || item.submission?.frontendId || ""}. ${title}`.trim()
+    `${result?.problem?.frontendId || item.submission?.problem?.id || ""}. ${title}`.trim()
   );
 }
 
@@ -308,7 +415,7 @@ async function failQueueItem(item, error, transient) {
       lastStatus: {
         state: transient ? "queued" : "error",
         message: transient
-          ? `${item.submission?.title || "Submission"} is safe in the queue. SolveLog will retry automatically.`
+          ? `${item.submission?.problem?.title || "Submission"} is safe in the queue. SolveLog will retry automatically.`
           : message,
         at: new Date().toISOString()
       }
@@ -352,6 +459,9 @@ async function updateSettings(input) {
   }
   if (Object.hasOwn(input, "autoSync")) {
     next.autoSync = input.autoSync !== false;
+  }
+  if (Object.hasOwn(input, "contestSafeMode")) {
+    next.contestSafeMode = input.contestSafeMode !== false;
   }
   if (Object.hasOwn(input, "owner")) {
     next.owner = cleanName(input.owner, current.owner);
@@ -491,6 +601,7 @@ function notify(title, message) {
 function friendlyError(error) {
   if (!error) return "Unexpected error.";
   if (error.code === "QUEUE_ITEM_FAILED") return String(error.message || "This queued submission needs attention.").slice(0, 300);
+  if (error.code === "CONTEST_VAULT_FULL") return String(error.message).slice(0, 300);
 
   const details = (() => {
     try { return JSON.stringify(error.payload || {}).toLowerCase(); } catch { return ""; }

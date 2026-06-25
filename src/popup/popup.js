@@ -1,11 +1,13 @@
 const $ = (selector) => document.querySelector(selector);
 let state = null;
+let activeTabIsContest = false;
 
 const STATUS_LABELS = {
   idle: "READY",
   queued: "IN THE QUEUE",
   syncing: "SAVING NOW",
   success: "FILED AWAY",
+  vaulted: "SAFE IN VAULT",
   error: "NEEDS A FIX"
 };
 
@@ -21,24 +23,32 @@ init().catch((error) => renderError(error.message));
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== "local" || !state) return;
-  const relevant = ["lastStatus", "stats", "syncQueue", "queueState", "autoSync", "syncMode", "owner", "repo", "theme", "palette"];
+  const relevant = [
+    "lastStatus", "stats", "syncQueue", "queueState", "contestVault",
+    "contestSafeMode", "autoSync", "syncMode", "owner", "repo", "theme", "palette"
+  ];
   if (relevant.some((key) => changes[key])) init().catch(() => undefined);
 });
 
 document.documentElement.addEventListener("solvelog-theme-change", updateThemeButton);
 
 async function init() {
-  const response = await chrome.runtime.sendMessage({ type: "GET_STATE" });
+  const [response, tabs] = await Promise.all([
+    chrome.runtime.sendMessage({ type: "GET_STATE" }),
+    chrome.tabs.query({ active: true, currentWindow: true }).catch(() => [])
+  ]);
   if (!response?.ok) throw new Error(response?.error || "Could not read SolveLog settings.");
   state = response.settings;
+  activeTabIsContest = isContestUrl(tabs?.[0]?.url || "");
   render();
 }
 
 function render() {
   const status = state.lastStatus || {};
-  const allowedStates = ["idle", "queued", "syncing", "success", "error"];
+  const allowedStates = ["idle", "queued", "syncing", "success", "vaulted", "error"];
   const statusState = allowedStates.includes(status.state) ? status.state : "idle";
   const queue = state.queue || { count: 0, failed: 0, busy: false, activeTitle: "" };
+  const vault = state.vault || { count: 0, contests: 0, latestTitle: "" };
 
   $("#status-label").textContent = STATUS_LABELS[statusState];
   $("#status-message").textContent = friendlyStatusMessage(statusState, status.message);
@@ -72,6 +82,8 @@ function render() {
     $("#queue-caption").textContent = "Accepted solutions are saved one at a time.";
   }
 
+  renderVault(vault);
+
   if (state.syncMode === "download") {
     $("#mode-label").textContent = "DOWNLOAD MODE";
     $("#connection-label").textContent = "ZERO GITHUB ACCESS";
@@ -83,6 +95,32 @@ function render() {
   $("#open-repository").disabled = state.syncMode !== "github" || !state.owner || !state.repo;
   renderPalette(state.palette || "voltage");
   updateThemeButton();
+}
+
+function renderVault(vault) {
+  const safeMode = state.contestSafeMode !== false;
+  const count = Number(vault.count) || 0;
+  $("#vault-card").dataset.active = String(activeTabIsContest || count > 0);
+  $("#vault-count").textContent = count ? `(${count})` : "";
+  $("#review-vault").disabled = false;
+
+  if (!safeMode) {
+    $("#vault-title").textContent = "SAFE MODE OFF";
+    $("#vault-caption").textContent = "Contest submissions can be committed immediately.";
+    return;
+  }
+  if (count) {
+    $("#vault-title").textContent = `${count} WAITING`;
+    $("#vault-caption").textContent = `${vault.latestTitle || "Contest solutions"} can be reviewed and released after the contest.`;
+    return;
+  }
+  if (activeTabIsContest) {
+    $("#vault-title").textContent = "CONTEST MODE ACTIVE";
+    $("#vault-caption").textContent = "Accepted solutions will stay local and will not reach GitHub.";
+    return;
+  }
+  $("#vault-title").textContent = "SAFE MODE ON";
+  $("#vault-caption").textContent = "Contest solutions stay local until you release them.";
 }
 
 $("#theme-toggle").addEventListener("click", async () => {
@@ -118,7 +156,7 @@ $("#manual-sync").addEventListener("click", async () => {
   setBusy($("#manual-sync"), true, "ADDING TO QUEUE…");
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.id || !tab.url?.startsWith("https://leetcode.com/problems/")) {
+    if (!tab?.id || !isLeetCodeProblemUrl(tab.url || "")) {
       throw new Error("Open a LeetCode problem first.");
     }
     const response = await chrome.tabs.sendMessage(tab.id, { type: "MANUAL_SYNC" });
@@ -142,6 +180,10 @@ $("#retry-pending").addEventListener("click", async () => {
   } finally {
     if (state) render();
   }
+});
+
+$("#review-vault").addEventListener("click", () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL("src/options/options.html#contest-vault") });
 });
 
 $("#open-repository").addEventListener("click", () => {
@@ -197,4 +239,23 @@ function relativeTime(value) {
   if (abs < 3600) return `${Math.round(abs / 60)}M AGO`;
   if (abs < 86400) return `${Math.round(abs / 3600)}H AGO`;
   return `${Math.round(abs / 86400)}D AGO`;
+}
+
+function isLeetCodeProblemUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.hostname === "leetcode.com" && (/^\/problems\//.test(url.pathname) || /^\/contest\/[^/]+\/problems\//.test(url.pathname));
+  } catch {
+    return false;
+  }
+}
+
+function isContestUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.hostname === "leetcode.com"
+      && (/^\/contest\//.test(url.pathname) || url.searchParams.get("envType") === "contest");
+  } catch {
+    return false;
+  }
 }

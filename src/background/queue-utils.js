@@ -1,3 +1,5 @@
+import { normaliseSubmission } from "../shared/submission-model.js";
+
 const MAX_QUEUE_SIZE = 100;
 
 export function hashText(value) {
@@ -11,13 +13,14 @@ export function hashText(value) {
 }
 
 export function submissionQueueId(submission) {
-  const submissionId = String(submission?.submissionId || "").trim();
-  if (submissionId && submissionId !== "manual") return `submission:${submissionId}`;
+  const item = normaliseSubmission(submission);
+  const submissionId = String(item.platformSubmissionId || "").trim();
+  if (submissionId && submissionId !== "manual") return `${item.platform}:submission:${submissionId}`;
 
-  const slug = String(submission?.slug || submission?.title || "problem").trim().toLowerCase();
-  const language = String(submission?.language || "unknown").trim().toLowerCase();
-  const codeHash = hashText(submission?.code || "");
-  return `manual:${slug}:${language}:${codeHash}`;
+  const slug = String(item.problem.slug || item.problem.title || "problem").trim().toLowerCase();
+  const language = String(item.solution.language || "unknown").trim().toLowerCase();
+  const codeHash = hashText(item.solution.code || "");
+  return `${item.platform}:manual:${slug}:${language}:${codeHash}`;
 }
 
 export function normaliseQueue(rawQueue, legacyPending = []) {
@@ -29,11 +32,13 @@ export function normaliseQueue(rawQueue, legacyPending = []) {
   const queue = [];
 
   for (const raw of source) {
-    const submission = raw?.submission && typeof raw.submission === "object"
+    const rawSubmission = raw?.submission && typeof raw.submission === "object"
       ? raw.submission
       : (raw && typeof raw === "object" ? raw : null);
-    if (!submission) continue;
+    if (!rawSubmission) continue;
 
+    const submission = normaliseSubmission(rawSubmission);
+    if (!submission.problem.title || !submission.solution.code) continue;
     const id = String(raw?.id || submissionQueueId(submission));
     if (!id || seen.has(id)) continue;
     seen.add(id);
@@ -56,14 +61,15 @@ export function normaliseQueue(rawQueue, legacyPending = []) {
 
 export function enqueueSubmission(queue, submission, now = new Date().toISOString()) {
   const current = normaliseQueue(queue);
-  const id = submissionQueueId(submission);
+  const normalised = normaliseSubmission(submission);
+  const id = submissionQueueId(normalised);
   const existingIndex = current.findIndex((item) => item.id === id);
 
   if (existingIndex >= 0) {
     const existing = current[existingIndex];
     current[existingIndex] = {
       ...existing,
-      submission,
+      submission: normalised,
       state: existing.state === "failed" ? "failed" : "queued"
     };
     return { queue: current, item: current[existingIndex], added: false, position: existingIndex + 1 };
@@ -71,7 +77,7 @@ export function enqueueSubmission(queue, submission, now = new Date().toISOStrin
 
   const item = {
     id,
-    submission,
+    submission: normalised,
     state: "queued",
     enqueuedAt: now,
     attempts: 0,
