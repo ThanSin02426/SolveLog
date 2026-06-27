@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.1
+
+- Fixed repeated accepted submissions for the same problem and language. SolveLog now keeps the latest pending attempt instead of creating competing commits.
+- Rebuilt legacy queue ids during migration so stale `manual:problem:unknown` entries cannot block newer saves.
+- Added queue deduplication by platform submission id and by problem/language track.
+- Allowed valid queued submissions behind a failed item to continue processing.
+- Treated already-saved identical solution files as duplicates instead of reporting an error.
+- Added hotfix tests for same-problem resubmission, legacy queue repair, and failed-item bypass.
+
 ## 1.4.0
 
 - Added Contest Safe Mode, enabled by default.

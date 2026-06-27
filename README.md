@@ -7,7 +7,7 @@
 
 SolveLog is a free, open-source browser extension that saves **Accepted** LeetCode submissions to a GitHub repository you choose—organised by **topic → difficulty → problem**.
 
-[![Version](https://img.shields.io/badge/version-1.4.0-ff3b8d?style=flat-square)](#)
+[![Version](https://img.shields.io/badge/version-1.4.1-ff3b8d?style=flat-square)](#)
 [![Manifest](https://img.shields.io/badge/Chrome-Manifest%20V3-3478f6?style=flat-square)](#)
 [![License](https://img.shields.io/badge/license-MIT-00c96b?style=flat-square)](LICENSE)
 [![Privacy](https://img.shields.io/badge/analytics-none-ffd400?style=flat-square)](docs/SECURITY.md)
@@ -192,7 +192,7 @@ Create the distributable ZIP with:
 npm run package
 ```
 
-The extension package is written to `dist/solvelog-v1.4.0.zip`.
+The extension package is written to `dist/solvelog-v1.4.1.zip`.
 
 ## Privacy
 

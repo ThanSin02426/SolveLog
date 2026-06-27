@@ -127,7 +127,8 @@ assert.equal(downloadOrder.length, 2);
 assert.match(downloadOrder[0], /solvelog-1-first\.zip$/);
 assert.match(downloadOrder[1], /solvelog-2-second\.zip$/);
 assert.deepEqual(storageData.syncQueue, []);
-assert.deepEqual(storageData.seenSubmissionIds.slice(0, 2), ["leetcode:submission-2", "leetcode:submission-1"]);
+assert.equal(storageData.seenSubmissionIds.includes("leetcode:submission-2"), true);
+assert.equal(storageData.seenSubmissionIds.includes("leetcode:submission-1"), true);
 assert.equal(storageData.queueState.busy, false);
 
 const duplicate = await send({ type: "SUBMISSION_ACCEPTED", submission: submission("1", "First", "first") });

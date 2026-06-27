@@ -17,10 +17,33 @@ export function submissionQueueId(submission) {
   const submissionId = String(item.platformSubmissionId || "").trim();
   if (submissionId && submissionId !== "manual") return `${item.platform}:submission:${submissionId}`;
 
-  const slug = String(item.problem.slug || item.problem.title || "problem").trim().toLowerCase();
-  const language = String(item.solution.language || "unknown").trim().toLowerCase();
+  const track = submissionTrackId(item);
   const codeHash = hashText(item.solution.code || "");
-  return `${item.platform}:manual:${slug}:${language}:${codeHash}`;
+  return `${track}:${codeHash}`;
+}
+
+export function submissionTrackId(submission) {
+  const item = normaliseSubmission(submission);
+  const platform = String(item.platform || "leetcode").trim().toLowerCase() || "leetcode";
+  const problemKey = String(item.problem.slug || item.problem.id || item.problem.title || "problem")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "problem";
+  const language = String(item.solution.language || "unknown").trim().toLowerCase() || "unknown";
+  return `${platform}:problem:${problemKey}:${language}`;
+}
+
+export function submissionIdentityKeys(submission) {
+  const item = normaliseSubmission(submission);
+  const keys = new Set([submissionQueueId(item), submissionTrackId(item)]);
+  const submissionId = String(item.platformSubmissionId || "").trim();
+  if (submissionId && submissionId !== "manual") {
+    keys.add(`${item.platform}:submission:${submissionId}`);
+    keys.add(`${item.platform}:${submissionId}`);
+    keys.add(submissionId);
+  }
+  return [...keys].filter(Boolean);
 }
 
 export function normaliseQueue(rawQueue, legacyPending = []) {
@@ -28,7 +51,6 @@ export function normaliseQueue(rawQueue, legacyPending = []) {
     ? rawQueue
     : (Array.isArray(legacyPending) ? legacyPending.map((submission) => ({ submission })) : []);
 
-  const seen = new Set();
   const queue = [];
 
   for (const raw of source) {
@@ -39,20 +61,46 @@ export function normaliseQueue(rawQueue, legacyPending = []) {
 
     const submission = normaliseSubmission(rawSubmission);
     if (!submission.problem.title || !submission.solution.code) continue;
-    const id = String(raw?.id || submissionQueueId(submission));
-    if (!id || seen.has(id)) continue;
-    seen.add(id);
 
-    queue.push({
+    // v1.4.0 could preserve legacy ids such as manual:problem:unknown:...,
+    // which allowed duplicate queue entries for the same problem/language.
+    // Always rebuild the queue id from the normalised submission instead.
+    const id = submissionQueueId(submission);
+    const trackId = submissionTrackId(submission);
+    if (!id || !trackId) continue;
+
+    const item = {
       id,
+      trackId,
       submission,
       state: raw?.state === "failed" ? "failed" : "queued",
       enqueuedAt: raw?.enqueuedAt || new Date().toISOString(),
       attempts: Math.max(0, Number(raw?.attempts) || 0),
       nextAttemptAt: raw?.nextAttemptAt || null,
       lastError: typeof raw?.lastError === "string" ? raw.lastError.slice(0, 500) : ""
-    });
+    };
 
+    const duplicateIndex = queue.findIndex((entry) =>
+      entry.id === item.id || entry.trackId === item.trackId
+    );
+
+    if (duplicateIndex >= 0) {
+      const previous = queue[duplicateIndex];
+      // For the same problem and language, keep the newest queued accepted
+      // solution instead of committing several near-identical attempts.
+      queue[duplicateIndex] = {
+        ...previous,
+        ...item,
+        enqueuedAt: previous.enqueuedAt || item.enqueuedAt,
+        state: item.state === "queued" ? "queued" : previous.state,
+        attempts: item.state === "queued" ? 0 : Math.min(previous.attempts, item.attempts),
+        nextAttemptAt: item.state === "queued" ? null : (previous.nextAttemptAt || item.nextAttemptAt),
+        lastError: item.state === "queued" ? "" : (previous.lastError || item.lastError)
+      };
+      continue;
+    }
+
+    queue.push(item);
     if (queue.length >= MAX_QUEUE_SIZE) break;
   }
 
@@ -63,20 +111,27 @@ export function enqueueSubmission(queue, submission, now = new Date().toISOStrin
   const current = normaliseQueue(queue);
   const normalised = normaliseSubmission(submission);
   const id = submissionQueueId(normalised);
-  const existingIndex = current.findIndex((item) => item.id === id);
+  const trackId = submissionTrackId(normalised);
+  const existingIndex = current.findIndex((item) => item.id === id || item.trackId === trackId);
 
   if (existingIndex >= 0) {
     const existing = current[existingIndex];
     current[existingIndex] = {
       ...existing,
+      id,
+      trackId,
       submission: normalised,
-      state: existing.state === "failed" ? "failed" : "queued"
+      state: "queued",
+      attempts: 0,
+      nextAttemptAt: null,
+      lastError: ""
     };
-    return { queue: current, item: current[existingIndex], added: false, position: existingIndex + 1 };
+    return { queue: current, item: current[existingIndex], added: false, replaced: true, position: existingIndex + 1 };
   }
 
   const item = {
     id,
+    trackId,
     submission: normalised,
     state: "queued",
     enqueuedAt: now,
@@ -85,7 +140,7 @@ export function enqueueSubmission(queue, submission, now = new Date().toISOStrin
     lastError: ""
   };
   const next = [...current, item].slice(-MAX_QUEUE_SIZE);
-  return { queue: next, item, added: true, position: next.findIndex((entry) => entry.id === id) + 1 };
+  return { queue: next, item, added: true, replaced: false, position: next.findIndex((entry) => entry.id === id) + 1 };
 }
 
 export function retryBackoffMs(attempts) {
@@ -114,10 +169,16 @@ export function isQueueItemEligible(item, now = Date.now(), force = false) {
   return !Number.isFinite(time) || time <= now;
 }
 
+export function nextEligibleQueueItem(queue, now = Date.now(), force = false) {
+  const items = normaliseQueue(queue);
+  return items.find((item) => isQueueItemEligible(item, now, force)) || null;
+}
+
 export function markQueueForRetry(queue) {
   return normaliseQueue(queue).map((item) => ({
     ...item,
     state: "queued",
+    attempts: 0,
     nextAttemptAt: null,
     lastError: ""
   }));

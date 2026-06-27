@@ -21,6 +21,7 @@ import {
 } from "../shared/utils.js";
 import {
   GitHubClient,
+  isNoChangesCommitError,
   isRepositoryRace,
   retryDelay
 } from "./github-client.js";
@@ -86,6 +87,11 @@ async function prepareAgainstSnapshot(problem, client, headSha) {
     return { duplicate: true, problem, record, index, classification, isNewProblem };
   }
 
+  const existingSolution = await client.getFile(`${record.path}/${solutionFilename(problem.language)}`, headSha);
+  if (existingSolution?.text?.trimEnd() === problem.code.trimEnd() && problem.submissionId !== "manual") {
+    return { duplicate: true, problem, record, index, classification, isNewProblem };
+  }
+
   updateRecordLanguage(record, problem);
   record.platform = problem.platform;
   record.tags = problem.tags;
@@ -144,6 +150,15 @@ export async function syncToGitHub(rawSubmission, settings) {
         stats: calculateStats(prepared.index)
       };
     } catch (error) {
+      if (isNoChangesCommitError(error)) {
+        return {
+          duplicate: true,
+          problem,
+          record: prepared.record,
+          commitUrl: null,
+          stats: calculateStats(prepared.index)
+        };
+      }
       if (!isRepositoryRace(error)) throw error;
       lastRace = error;
       if (attempt < MAX_SYNC_ATTEMPTS - 1) await retryDelay(attempt);

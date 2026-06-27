@@ -45,6 +45,13 @@ export function isEmptyRepositoryError(error) {
   return /git repository is empty|repository is empty|empty repository|repository has no commits/.test(text);
 }
 
+
+export function isNoChangesCommitError(error) {
+  if (!error || Number(error.status) !== 422) return false;
+  const text = `${error.message || ""} ${payloadText(error.payload)}`.toLowerCase();
+  return /no changes|empty commit|nothing to commit|file changes.*empty|changes.*required/.test(text);
+}
+
 export function isRepositoryRace(error) {
   if (!error || isEmptyRepositoryError(error)) return false;
   if (error.code === "BRANCH_MOVED") return true;

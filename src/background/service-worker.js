@@ -12,8 +12,10 @@ import {
   enqueueSubmission,
   isQueueItemEligible,
   markQueueForRetry,
+  nextEligibleQueueItem,
   normaliseQueue,
-  retryBackoffMs
+  retryBackoffMs,
+  submissionIdentityKeys
 } from "./queue-utils.js";
 import { getSettings, publicSettings, saveSettings } from "./storage.js";
 import {
@@ -125,15 +127,22 @@ async function queueSubmission(rawSubmission) {
       return { duplicate: true, item: null, position: 0 };
     }
 
+    const identityKeys = new Set(submissionIdentityKeys(submission));
+    const alreadyQueued = normaliseQueue(current.syncQueue).some((item) =>
+      submissionIdentityKeys(item.submission).some((key) => identityKeys.has(key))
+    );
+
     const result = enqueueSubmission(current.syncQueue, submission);
     await chrome.storage.local.set({
       syncQueue: result.queue,
       pendingSubmissions: [],
       lastStatus: {
         state: "queued",
-        message: result.position > 1
-          ? `${submission.problem.title || "Submission"} is queued behind ${result.position - 1} other save${result.position === 2 ? "" : "s"}.`
-          : `${submission.problem.title || "Submission"} is queued for saving.`,
+        message: result.replaced || alreadyQueued
+          ? `${submission.problem.title || "Submission"} replaced an older pending attempt.`
+          : result.position > 1
+            ? `${submission.problem.title || "Submission"} is queued behind ${result.position - 1} other save${result.position === 2 ? "" : "s"}.`
+            : `${submission.problem.title || "Submission"} is queued for saving.`,
         at: new Date().toISOString()
       }
     });
@@ -292,11 +301,12 @@ async function drainQueue({ force = false } = {}) {
 
     while (processed < MAX_ITEMS_PER_DRAIN) {
       const settings = await getSettings();
-      const item = settings.syncQueue[0];
-      if (!item) break;
-
-      if (!isQueueItemEligible(item, Date.now(), force)) {
-        if (item.nextAttemptAt) scheduleWake(item.nextAttemptAt);
+      const item = nextEligibleQueueItem(settings.syncQueue, Date.now(), force);
+      if (!item) {
+        const nextScheduled = settings.syncQueue
+          .filter((entry) => entry.state !== "failed" && entry.nextAttemptAt)
+          .sort((a, b) => new Date(a.nextAttemptAt).valueOf() - new Date(b.nextAttemptAt).valueOf())[0];
+        if (nextScheduled?.nextAttemptAt) scheduleWake(nextScheduled.nextAttemptAt);
         break;
       }
 
@@ -324,7 +334,9 @@ async function drainQueue({ force = false } = {}) {
 
         if (transient && failure.nextAttemptAt) scheduleWake(failure.nextAttemptAt);
         if (!transient) notify("SolveLog needs attention", friendlyError(error));
-        break;
+        if (transient || isRepositoryWideFailure(error)) break;
+        processed += 1;
+        continue;
       }
     }
 
@@ -356,10 +368,20 @@ async function completeQueueItem(item, result) {
 
   await withStorageMutation(async () => {
     const current = await getSettings();
-    const nextQueue = current.syncQueue.filter((entry) => entry.id !== item.id);
-    const seen = seenKey
-      ? [seenKey, ...current.seenSubmissionIds.filter((id) => id !== seenKey)].slice(0, 500)
-      : current.seenSubmissionIds;
+    const completedKeys = new Set(submissionIdentityKeys(item.submission));
+    const resultKey = result?.problem?.submissionId && result.problem.submissionId !== "manual"
+      ? `${result.problem.platform || "leetcode"}:${result.problem.submissionId}`
+      : "";
+    if (seenKey) completedKeys.add(seenKey);
+    if (resultKey) completedKeys.add(resultKey);
+
+    const nextQueue = normaliseQueue(current.syncQueue).filter((entry) =>
+      !submissionIdentityKeys(entry.submission).some((key) => completedKeys.has(key))
+    );
+    const seen = [...completedKeys, ...current.seenSubmissionIds]
+      .filter(Boolean)
+      .filter((id, index, list) => list.indexOf(id) === index)
+      .slice(0, 500);
 
     const remaining = nextQueue.length;
     const message = result?.duplicate
@@ -393,7 +415,7 @@ async function failQueueItem(item, error, transient) {
 
   await withStorageMutation(async () => {
     const current = await getSettings();
-    const queue = current.syncQueue.map((entry) => {
+    const queue = normaliseQueue(current.syncQueue).map((entry) => {
       if (entry.id !== item.id) return entry;
       const attempts = (Number(entry.attempts) || 0) + 1;
       const nextAttemptAt = transient
@@ -527,6 +549,16 @@ function isTransientSyncError(error) {
   if (Number(error.status) >= 500) return true;
   const text = String(error.message || error).toLowerCase();
   return error.name === "TypeError" || /failed to fetch|network error|temporarily unavailable|timeout/.test(text);
+}
+
+function isRepositoryWideFailure(error) {
+  if (!error) return false;
+  if ([401, 403, 404].includes(Number(error.status))) return true;
+  const details = (() => {
+    try { return JSON.stringify(error.payload || {}).toLowerCase(); } catch { return ""; }
+  })();
+  const text = `${error.message || ""} ${details}`.toLowerCase();
+  return /protected branch|repository rule|ruleset|required status|signed commit|branch name|permission|token/.test(text);
 }
 
 async function setStatus(state, message) {

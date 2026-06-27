@@ -4,9 +4,9 @@ cd "$(dirname "$0")/.."
 npm run validate
 rm -rf dist
 mkdir -p dist
-zip -qr dist/solvelog-v1.4.0.zip \
+zip -qr dist/solvelog-v1.4.1.zip \
   manifest.json \
   src \
   assets/icons \
   LICENSE
-printf 'Created dist/solvelog-v1.4.0.zip\n'
+printf 'Created dist/solvelog-v1.4.1.zip\n'

@@ -1,6 +1,6 @@
 {
   "name": "solvelog-extension",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "private": true,
   "description": "Privacy-first LeetCode archive with Contest Safe Mode and a local Contest Vault",
   "type": "module",

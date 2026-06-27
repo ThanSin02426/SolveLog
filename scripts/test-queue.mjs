@@ -4,7 +4,8 @@ import {
   isQueueItemEligible,
   markQueueForRetry,
   normaliseQueue,
-  submissionQueueId
+  submissionQueueId,
+  submissionTrackId
 } from "../src/background/queue-utils.js";
 
 const first = { submissionId: "100", slug: "two-sum", title: "Two Sum", language: "cpp", code: "a" };
@@ -41,5 +42,43 @@ const failed = [{ ...legacy[0], state: "failed", lastError: "x", nextAttemptAt: 
 const retried = markQueueForRetry(failed);
 assert.equal(retried[0].state, "queued");
 assert.equal(retried[0].lastError, "");
+
+const sameProblemFirst = {
+  submissionId: "201",
+  frontendId: "139",
+  title: "Word Break",
+  slug: "word-break",
+  language: "cpp",
+  code: "old"
+};
+const sameProblemSecond = {
+  ...sameProblemFirst,
+  submissionId: "202",
+  code: "new"
+};
+let sameProblemQueue = enqueueSubmission([], sameProblemFirst).queue;
+const sameProblemUpdate = enqueueSubmission(sameProblemQueue, sameProblemSecond);
+assert.equal(sameProblemUpdate.queue.length, 1, "same problem/language should keep only the latest pending attempt");
+assert.equal(sameProblemUpdate.replaced, true);
+assert.equal(sameProblemUpdate.queue[0].id, "leetcode:submission:202");
+assert.equal(sameProblemUpdate.queue[0].submission.solution.code, "new");
+assert.equal(submissionTrackId(sameProblemFirst), submissionTrackId(sameProblemSecond));
+
+const legacyUnknown = normaliseQueue([
+  {
+    id: "manual:problem:unknown:811c9dc5",
+    state: "failed",
+    lastError: "Problem number is required.",
+    submission: sameProblemFirst
+  },
+  {
+    id: "leetcode:submission:202",
+    submission: sameProblemSecond
+  }
+]);
+assert.equal(legacyUnknown.length, 1, "legacy unknown queue ids should be rebuilt and deduplicated");
+assert.equal(legacyUnknown[0].id, "leetcode:submission:202");
+assert.equal(legacyUnknown[0].state, "queued");
+assert.equal(legacyUnknown[0].lastError, "");
 
 console.log("Queue tests passed.");
