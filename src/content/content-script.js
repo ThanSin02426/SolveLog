@@ -260,10 +260,47 @@
 
   function pageShowsAcceptedResult() {
     const text = document.body?.innerText || "";
-    const hasAccepted = /(^|\n)\s*Accepted\s*(\n|$)/i.test(text);
-    const hasSubmissionEvidence = /\d+\s*\/\s*\d+\s*testcases passed/i.test(text)
-      || /\bRuntime\b[\s\S]{0,80}\bMemory\b/i.test(text);
-    return hasAccepted && hasSubmissionEvidence;
+
+    // LeetCode submission pages can contain two unrelated result areas:
+    // 1. the real submitted verdict near "N / N testcases passed"
+    // 2. the editor Test Result panel, which may say "Accepted" for sample
+    //    tests even while the actual submission is Wrong Answer.
+    // The fallback detector must only trust the real submitted verdict.
+    return submittedVerdictFromText(text) === "accepted";
+  }
+
+  function submittedVerdictFromText(text) {
+    const clean = String(text || "").replace(/\r/g, "");
+
+    // Strongest signal: the verdict is attached to the submitted testcase count,
+    // for example: "Accepted 31 / 31 testcases passed" or
+    // "Wrong Answer 71 / 191 testcases passed". This excludes the lower
+    // Test Result panel because that panel does not contain the full submitted
+    // testcase count.
+    const verdictWithCount = clean.match(
+      /\b(Accepted|Wrong Answer|Runtime Error|Time Limit Exceeded|Memory Limit Exceeded|Compile Error|Compilation Error)\b[\s\S]{0,140}?\b\d+\s*\/\s*\d+\s*testcases passed\b/i
+    );
+    if (verdictWithCount) {
+      return normaliseVerdict(verdictWithCount[1]);
+    }
+
+    // Some LeetCode layouts put the testcase count first and the verdict close
+    // by. Keep this strict so sample-run "Accepted" never triggers a save.
+    const countThenVerdict = clean.match(
+      /\b\d+\s*\/\s*\d+\s*testcases passed\b[\s\S]{0,140}?\b(Accepted|Wrong Answer|Runtime Error|Time Limit Exceeded|Memory Limit Exceeded|Compile Error|Compilation Error)\b/i
+    );
+    if (countThenVerdict) {
+      return normaliseVerdict(countThenVerdict[1]);
+    }
+
+    return "";
+  }
+
+  function normaliseVerdict(value) {
+    return String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ");
   }
 
   function readSubmissionMetrics() {

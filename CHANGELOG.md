@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.2
+
+- Fixed false accepted-submission detection on LeetCode submission detail pages when the real verdict is Wrong Answer but the lower Test Result panel says Accepted for sample tests.
+- Made the fallback detector trust only the submitted verdict attached to the full testcase count, such as `Accepted 48 / 48 testcases passed`.
+- Added regression tests so sample-run Accepted text cannot trigger GitHub commits.
+
 ## 1.4.1
 
 - Fixed repeated accepted submissions for the same problem and language. SolveLog now keeps the latest pending attempt instead of creating competing commits.
